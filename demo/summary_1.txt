@@ -1,0 +1,18 @@
+### Objective Facts
+1. The study aimed to find existing drugs that could be repurposed to treat COVID-19.
+2. A large library of around 12,000 approved or clinically tested drugs was used, which have known pharmacological and human safety profiles.
+3. A total of 100 drugs were discovered to be able to stop the virus from replicating in cells.
+4. Thirteen drugs exhibited a cellular half-maximal effective concentration (EC50) value of less than 500 nM, indicating they were effective at doses likely safe for patients.
+5. ONO 5334, MDL 28170, and apilimod showed antiviral activity in human induced pluripotent stem cell (iPSC)-derived pneumocyte-like cells by reducing the number of infected cells by 72%, 65%, and 85%, respectively.
+6. Apilimod was also effective in an ex vivo lung culture system, reducing viral titre with plaque assay.
+7. Time-of-addition experiments identified which stage of the viral life cycle the compounds target.
+8. The five most potent compounds—apilimod, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170—inhibit viral entry.
+9. The protease inhibitors VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases, suggesting they act on host proteases.
+10. Z LVG CHN2 likely targets endosomal proteases, while MDL 28170, ONO 5334, and VBY-825 inhibit various cathepsins necessary for viral protein processing.
+
+### Logical Inferences
+1. **Drug Selection Basis**: The use of approved or clinically tested drugs with known pharmacological and safety profiles allows for quicker preclinical and clinical evaluation.
+2. **Effectiveness Evaluation**: Through cellular assays, 100 drugs were identified to inhibit viral replication, with 13 drugs being effective at concentrations below 500 nM, suggesting potential safety and efficacy for patients.
+3. **Specific Drug Efficacy**: ONO 5334, MDL 28170, and apilimod demonstrated significant antiviral effects in iPSC-derived pneumocyte-like cells, with apilimod also proving effective in ex vivo lung culture systems.
+4. **Mechanism of Action**: Time-of-addition experiments revealed that the five most potent compounds primarily inhibit viral entry. Although they are protease inhibitors, they do not target the viral 3C-like or papain-like proteases, indicating they act on host proteases instead.
+5. **Role of Host Proteases**: Detailed analysis shows that Z LVG CHN2 likely targets endosomal proteases, while MDL 28170, ONO 5334, and VBY-825 inhibit various cathepsins, which are essential for viral protein processing.

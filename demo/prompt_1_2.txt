@@ -1,0 +1,21 @@
+**Prompt to Summarize a Research Paper:**
+
+1. **General Overview and Purpose:**
+   - "Please provide a brief summary of the purpose and main findings of this paper."
+   - "What was the primary objective of the study presented in this paper?"
+
+2. **Key Findings:**
+   - "What are the key findings or results reported in this paper?"
+   - "Can you list the main discoveries or conclusions drawn from the research in this paper?"
+
+3. **Methodology:**
+   - "What methods or techniques were used in this study to achieve the research objectives?"
+   - "How did the researchers conduct their experiments or analyses in this paper?"
+
+4. **Significance of Findings:**
+   - "Why are the findings of this paper significant or important?"
+   - "What impact do the results of this study have on the field or on future research?"
+
+5. **Specific Results:**
+   - "What specific results or data were highlighted in the paper?"
+   - "Can you detail any quantitative findings such as EC50 values or percentages of effectiveness?"

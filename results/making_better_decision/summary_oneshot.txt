@@ -1,0 +1,8 @@
+The new summary content is:
+The paper presents the Policy Optimization with Model Planning (POMP) algorithm, which integrates a novel Deep Differential Dynamic Programming (D3P) planner to enhance decision-making in model-based reinforcement learning (RL). The D3P planner leverages a learned environment model to optimize action sequences in continuous action spaces by constructing a locally quadratic programming problem and incorporating temporal dependencies between actions.
+
+The D3P planner addresses two main challenges: the infinite number of candidate actions in continuous action spaces and the temporal dependency between actions at different timesteps. It uses first-order Taylor expansion to approximate the objective function and efficiently find the local optimal action sequence. The planner's convergence rate is theoretically proven, showing at least linear convergence and near quadratic convergence under certain conditions.
+
+POMP incorporates the D3P planner into the model-based RL framework, using the policy network to initialize action sequences and adding a conservative term to the planning objective to account for model inaccuracies. This approach ensures better decision-making by refining actions in the trajectory.
+
+Experiments on benchmark continuous control tasks demonstrate that POMP significantly improves sample efficiency and performance compared to state-of-the-art model-free and model-based RL methods. Extensive ablation studies confirm the necessity of planning and the advantages of the D3P planner in continuous control tasks. The results also highlight the importance of using the learned policy for initialization and the conservative term for effective planning.

@@ -1,0 +1,549 @@
+\pdfoutput=1
+\documentclass{article} 
+
+\usepackage[dvipsnames]{xcolor}
+\usepackage{iclr2023_conference,times}
+
+\input{math_commands.tex}
+\definecolor{mydarkblue}{rgb}{0,0.08,0.45}
+\usepackage[colorlinks, anchorcolor=white, linkcolor=mydarkblue, urlcolor=mydarkblue, citecolor=mydarkblue]{hyperref}
+\usepackage{url}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{enumitem}
+\usepackage{booktabs}       
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{array}
+\usepackage[noabbrev,capitalise]{cleveref}
+\usepackage{crossreftools}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage[toc,page,header]{appendix}
+\usepackage{minitoc}
+\usepackage{footnote}
+\usepackage{letterspace}
+\usepackage{setspace}
+\makesavenoteenv{table}
+\makesavenoteenv{tabular}
+\newcommand{\cmark}{\ding{51}}
+\newcommand{\xmark}{\ding{55}}
+\renewcommand \thepart{}
+\renewcommand \partname{}
+
+\pdfstringdefDisableCommands{
+    \let\Cref\crtCref
+    \let\cref\crtcref
+}
+\hypersetup{
+    bookmarksnumbered, bookmarksopen=true, bookmarksopenlevel=1,
+}
+\renewcommand\RSsmallest{6.9pt}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{assumption}[theorem]{Assumption}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{example}[theorem]{Example}
+
+\crefname{definition}{Definition}{Definitions}
+
+\newcommand*{\ldblbrace}{\{\mskip-5mu\{}
+\newcommand*{\rdblbrace}{\}\mskip-5mu\}}
+\newcommand*{\Ldblbrace}{\left\{\mskip-5mu\left\{}
+\newcommand*{\Rdblbrace}{\right\}\mskip-5mu\right\}}
+\newcommand*{\dis}{{\operatorname{dis}}}
+\newcommand*{\disR}{\operatorname{dis}^\mathrm{R}}
+\newcommand*{\disC}{\operatorname{dis}^\mathrm{C}}
+\newcommand*{\diag}{\operatorname{diag}}
+
+\newcommand{\sj}[1]{\textcolor{blue}{SJ: #1}}
+
+\title{Rethinking the Expressive Power of GNNs via Graph Biconnectivity}
+
+\author{Bohang Zhang\thanks{Equal Contribution.} \qquad Shengjie Luo$^*$ \qquad Liwei Wang \qquad Di He\\
+\small{\texttt{zhangbohang@pku.edu.cn}, \quad\texttt{luosj@stu.pku.edu.cn}, \quad
+\texttt{\{wanglw,dihe\}@pku.edu.cn} }\\
+Peking University
+}
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\iclrfinalcopy 
+\begin{document}
+
+\maketitle
+
+\doparttoc 
+\faketableofcontents 
+
+\vspace{-5pt}
+
+\begin{abstract}
+Designing expressive Graph Neural Networks (GNNs) is a central topic in learning graph-structured data. While numerous approaches have been proposed to improve GNNs in terms of the Weisfeiler-Lehman (WL) test, generally there is still a lack of deep understanding of what additional power they can \emph{systematically} and \emph{provably} gain. In this paper, we take a fundamentally different perspective to study the expressive power of GNNs beyond the WL test. Specifically, we introduce a novel class of expressivity metrics via \emph{graph biconnectivity} and highlight their importance in both theory and practice. As biconnectivity can be easily calculated using simple algorithms that have linear computational costs, it is natural to expect that popular GNNs can learn it easily as well. However, after a thorough review of prior GNN architectures, we surprisingly find that most of them are \emph{not} expressive for \emph{any} of these metrics. The only exception is the ESAN framework , for which we give a theoretical justification of its power. We proceed to introduce a principled and more efficient approach, called the Generalized Distance Weisfeiler-Lehman (GD-WL), which is provably expressive for all biconnectivity metrics. Practically, we show GD-WL can be implemented by a Transformer-like architecture that preserves expressiveness and enjoys full parallelizability. A set of experiments on both synthetic and real datasets demonstrates that our approach can consistently outperform prior GNN architectures.
+\end{abstract}
+
+\vspace{-5pt}
+
+\section{Introduction}
+\label{sec:introduction}
+Graph neural networks (GNNs) have recently become the dominant approach for graph representation learning. Among numerous architectures, message-passing neural networks (MPNNs) are arguably the most popular design paradigm and have achieved great success in various fields . However, one major drawback of MPNNs lies in the limited expressiveness: as pointed out by , they can never be more powerful than the classic 1-dimensional Weisfeiler-Lehman (1-WL) test in distinguishing non-isomorphic graphs . This inspired a variety of works to design provably more powerful GNNs that go beyond the 1-WL test.
+
+One line of subsequent works aimed to propose GNNs that match the \emph{higher-order} WL variants . While being highly expressive, such an approach suffers from severe computation/memory costs. Moreover, there have been concerns about whether the achieved expressiveness is necessary for real-world tasks . In light of this, other recent works sought to develop new GNN architectures with improved expressiveness while still keeping the message-passing framework for efficiency \citep[and see \cref{sec:related_work_expressive_gnn} for more recent advances]{bouritsas2022improving,bodnar2021topological,bodnar2021cellular,bevilacqua2022equivariant,wijesinghe2022new}. However, 
+most of these works mainly justify their expressiveness by giving \emph{toy examples} where WL algorithms fail to distinguish, e.g., by focusing on regular graphs. On the theoretical side, it is quite unclear what additional power they can systematically and provably gain. More fundamentally,
+to the best of our knowledge (see \cref{sec:other_metrics}),
+there is still a lack of \emph{principled} and \emph{convincing} metrics beyond the WL hierarchy to formally measure the expressive power and to guide the design of provably better GNN architectures.
+
+\begin{figure}[t]
+    \small
+    \vspace{-5pt}
+    \centering
+    \setlength\tabcolsep{12pt}
+    \begin{tabular}{c c c}
+        \includegraphics[height=9.5em]{figure/original.pdf} & \includegraphics[height=9.5em]{figure/bcetree.pdf} & \includegraphics[height=9.5em]{figure/bcvtree.pdf}\\
+        (a) Original graph & (b) Block cut-edge tree & (c) Block cut-vertex tree
+    \end{tabular}
+    \vspace{-7pt}
+    \caption{An illustration of edge-biconnectivity and vertex-biconnectivity. Cut vertices/edges are outlined in bold red. Gray nodes in (b)/(c) are edge/vertex-biconnected components, respectively. }
+    \label{fig:block_cut_tree}
+    \vspace{-10pt}
+\end{figure}
+
+In this paper, we systematically study the problem of designing expressive GNNs from a novel perspective of \emph{graph biconnectivity}. Biconnectivity has long been a central topic in graph theory . It comprises a series of important concepts such as cut vertex (articulation point), cut edge (bridge), biconnected component, and block cut tree (see \cref{sec:preliminary} for formal definitions). 
+Intuitively, biconnectivity provides a structural description of a graph by decomposing it into disjoint sub-components and linking them 
+
+via cut vertices/edges to form a \emph{tree} structure (cf. \cref{fig:block_cut_tree}(b,c)). As can be seen, biconnectivity purely captures the intrinsic structure of a graph.
+
+The significance of graph biconnectivity can be reflected in various aspects. \emph{Firstly}, from a theoretical point of view, it is a basic graph property and is linked to many fundamental topics in graph theory, ranging from path-related problems to network flow  and spanning trees , and is highly relevant to planar graph isomorphism . 
+\emph{Secondly}, from a practical point of view, cut vertices/edges have substantial values in many real applications. For example, chemical reactions are highly related to edge-biconnectivity of the molecule graph, where the breakage of molecular bonds usually occurs at the cut edges and each biconnected component often remains unchanged after the reaction. As another example, social networks are related to vertex-biconnectivity, where cut vertices play an important role in linking between different groups of people (biconnected components). 
+\emph{Finally}, from a computational point of view, the problems related to biconnectivity (e.g., finding cut vertices/edges or constructing block cut trees) can all be efficiently solved using classic algorithms , with a computation complexity \emph{equal to graph size} (which is the same as an MPNN). Therefore, one may naturally expect that popular GNNs should be able to learn all things related to biconnectivity without difficulty.
+
+Unfortunately, we show this is not the case. After a thorough analysis of four classes of representative GNN architectures in literature (see \cref{sec:counterexamples}), we find that surprisingly, none of them could even solve the \emph{easiest} biconnectivity problem: to distinguish whether a graph has cut vertices/edges or not (corresponding to a graph-level binary classification). As a result, they obviously failed in the following harder tasks: $(\mathrm{i})$ identifying all cut vertices (a node-level task); $(\mathrm{ii})$ identifying all cut edges (an edge-level task); $(\mathrm{iii})$ the graph-level task for general biconnectivity problems, e.g., distinguishing a pair of graphs that have non-isomorphic block cut trees. This raises the following question: \emph{can we design GNNs with provable expressiveness for biconnectivity problems?}
+
+We first give an \emph{affirmative} answer to the above question. By conducting a deep analysis of the recently proposed Equivariant Subgraph Aggregation Network (ESAN) , we prove that the DSS-WL algorithm with \emph{node marking} policy can precisely identify both cut vertices and cut edges. This provides a new understanding as well as a strong theoretical justification for the expressive power of DSS-WL and its recent extensions . Furthermore, we give a fine-grained analysis of several key factors in the framework, such as the graph generation policy and the aggregation scheme, by showing that \emph{neither} $(\mathrm{i})$ the ego-network policy without marking \emph{nor} $(\mathrm{ii})$ a variant of the weaker DS-WL algorithm can identify cut vertices. 
+
+However, GNNs designed based on DSS-WL are usually sophisticated and suffer from high computation/memory costs. The \textbf{main contribution} in this paper is then to give a \emph{principled} and \emph{efficient} way to design GNNs that are expressive for biconnectivity problems.
+
+Targeting this question, we restart from the classic 1-WL algorithm and figure out a major weakness in distinguishing biconnectivity: the lack of \emph{distance information} between nodes. Indeed, the importance of distance information is theoretically justified in our proof for analyzing the expressive power of DSS-WL. To this end, we introduce a novel color refinement framework, formalized as Generalized Distance Weisfeiler-Lehman (GD-WL), by directly encoding a general distance metric into the WL aggregation procedure. We first prove that as a special case, the Shortest Path Distance WL (SPD-WL) is expressive for all edge-biconnectivity problems, thus providing a novel understanding of its empirical success. However, it still cannot identify cut vertices. We further suggest an alternative called the Resistance Distance WL (RD-WL) for vertex-biconnectivity. To sum up, all biconnectivity problems can be provably solved within our proposed GD-WL framework.
+
+Finally, we give a worst-case analysis of the proposed GD-WL framework. We discuss its limitations by proving that the expressive power of both SPD-WL and RD-WL can be bounded by the standard 2-FWL test . Consequently, 2-FWL is fully expressive for all biconnectivity metrics.  Besides, since GD-WL heavily relies on distance information, we proceed to analyze its power in distinguishing the class of \emph{distance-regular graphs} . Surprisingly, we show GD-WL \emph{matches} the power of 2-FWL in this case, which strongly justifies its high expressiveness in distinguishing hard graphs. A summary of our theoretical contributions is given in \cref{tab:summary_of_results}. 
+
+\begin{table}[t]
+    \vspace{-12pt}
+    \centering
+    \small
+    \setlength\tabcolsep{2pt}
+    \caption{Summary of theoretical results on the expressive power of different GNN models for various biconnectivity problems. We also list the time/space complexity (per WL iteration) for each WL algorithm, where $n$ and $m$ are the number of nodes and edges of a graph, respectively.}
+    \label{tab:summary_of_results}
+    \vspace{2pt}
+    \begin{tabular}{c|cccc|cc|cc|c}
+    \Xhline{0.75pt}
+     & \multicolumn{4}{c|}{\cref{sec:counterexamples}} & \multicolumn{2}{c|}{\cref{sec:esan}}  & \multicolumn{3}{c}{\cref{sec:gdwl}}\\
+    \cline{2-10}
+    Model & MPNN & GSN & CWN & GraphSNN & \multicolumn{2}{c|}{ESAN} & \multicolumn{2}{c|}{Ours} & 3-IGN\\
+    WL variant & 1-WL & SC-WL & CWL & OS-WL & DSS-WL & DS-WL & SPD-WL & GD-WL & 2-FWL\\
+    \hline
+    Cut vertex & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark \\
+    Cut edge & \xmark & \xmark & \xmark & \xmark & \cmark & Unknown & \cmark & \cmark & \cmark \\
+    BCVTree & \xmark & \xmark & \xmark & \xmark & \cmark & Unknown & \xmark & \cmark & \cmark \\
+    BCETree & \xmark & \xmark & \xmark & \xmark & \cmark & Unknown & \cmark & \cmark & \cmark \\
+    \hline
+    Ref. Theorem & - & \ref{thm:scwl} & \ref{thm:swl_cwl} & \ref{thm:oswl} & \ref{thm:dsswl} & \ref{thm:dswl_adaptation} & \ref{thm:spdwl} & \ref{thm:rdwl}, \ref{thm:gdwl} & \ref{thm:2fwl_biconnectivity}  \\
+    \hline
+    Time & $n\!+\!m$ & $n\!+\!m$ & - & $n\!+\!m$ & $n(n\!+\!m)$ & $n(n\!+\!m)$ & $n^2$ & $n^2$ & $n^3$\\
+    Space\footnote{The space complexity of WL algorithms may differ from the corresponding GNN models in training, e.g., for DS-WL and GD-WL, due to the need to store intermediate results for back-propagation.} & $n$ & $n$ & - & $n$ & $n^2$ & $n$ & $n$ & $n$ & $n^2$\\
+    \Xhline{0.75pt}
+    \end{tabular}
+    \vspace{-8pt}
+\end{table}
+
+\textbf{Practical Implementation}.
+The main advantage of GD-WL lies in its simplicity, efficiency and \emph{parallelizability}. We show it can be easily implemented using a Transformer-like architecture by injecting the distance into Multi-head Attention , similar to . Importantly, we prove that the resulting Graph Transformer (called Graphormer-GD) is \emph{as expressive as} GD-WL. This offers strong theoretical insights into the power and limits of Graph Transformers. Empirically, we show Graphormer-GD not only achieves perfect accuracy in detecting cut vertices and cut edges, but also outperforms prior GNN achitectures on popular benchmark datasets.
+\vspace{-2pt}
+
+\section{Preliminary}
+\label{sec:preliminary}
+\vspace{-1pt}
+\textbf{Notations}. We use $\{\ \}$ to denote sets and use $\ldblbrace\ \rdblbrace$ to denote multisets. The cardinality of (multi)set $\gS$ is denoted as $|\gS|$. The index set is denoted as $[n]:=\{1,\cdots,n\}$. Throughout this paper, we consider simple undirected graphs $G=(\gV,\gE)$ with no repeated edges or self-loops. Therefore, each edge $\{u,v\}\in\gE$ can be expressed as a set of two elements. For a node $u\in\gV$, denote its \emph{neighbors} as $\gN_G(u):=\{v\in\gV:\{u,v\}\in\gE\}$ and denote its \emph{degree} as $\deg_G(u):=|\gN_G(u)|$. A \emph{path} $P=(u_0,\cdots,u_d)$ is a tuple of nodes satisfying $\{u_{i-1},u_i\}\in\gE$ for all $i\in[d]$, and its length is denoted as $|P|:=d$. A path $P$ is said to be \emph{simple} if it does not go through a node more than once, i.e. $u_i\neq u_j$ for $i\neq j$. The shortest path distance between two nodes $u$ and $v$ is denoted to be $\dis_G(u,v):=\min\{|P|:P\text{ is a path from }u\text{ to }v\}$. The \emph{induced subgraph} with vertex subset $\gS\subset\gV$ is defined as $G[\gS]=(\gS,\gE_\gS)$ where $\gE_\gS:=\{\{u,v\}\in\gE:u,v\in\gS\}$.
+
+We next introduce the concepts of connectivity, vertex-biconnectivity and edge-biconnectivity.
+
+\begin{definition}
+\label{connectivity}
+\normalfont (\textbf{Connectivity}) A graph $G$ is \emph{connected} if for any two nodes $u,v\in\gV$, there is a path from $u$ to $v$. A vertex set $\gS\subset\gV$ is a \emph{connected component} of $G$ if $G[\gS]$ is connected and for any proper superset $\gT\supsetneq\gS$, $G[\gT]$ is disconnected. Denote $\mathrm{CC}(G)$ as the set of all connected components, then $\mathrm{CC}(G)$ forms a \emph{partition} of the vertex set $\gV$. Clearly, $G$ is connected iff $|\mathrm{CC}(G)|=1$.
+\end{definition}
+
+\begin{definition}
+\label{vertex_biconnectivity}
+\normalfont (\textbf{Biconnectivity}) A node $v\in\gV$ is a \emph{cut vertex} (or \emph{articulation point}) of $G$ if removing $v$ increases the number of connected components, i.e., $|\mathrm{CC}(G[\gV\backslash\{v\}])|>|\mathrm{CC}(G)|$. A graph is \emph{vertex-biconnected} if it is connected and does not have any cut vertex. A vertex set $\gS\subset\gV$ is a \emph{vertex-biconnected component} of $G$ if $G[\gS]$ is vertex-biconnected and for any proper superset $\gT\supsetneq\gS$, $G[\gT]$ is not vertex-biconnected. We can similarly define the concepts of \emph{cut edge} (or \emph{bridge}) and \emph{edge-biconnected component} (we omit them for brevity). Finally, denote $\mathrm{BCC}^\mathrm{V}(G)$ (resp. $\mathrm{BCC}^\mathrm{E}(G)$) as the set of all vertex-biconnected (resp. edge-biconnected) components.
+\end{definition}
+
+\vspace{-4pt}
+
+Two non-adjacent nodes $u,v\in\gV$ are in the same vertex-biconnected component iff there are two paths from $u$ to $v$ that do not intersect (except at endpoints). Two nodes $u,v$ are in the same edge-biconnected component iff there are two paths from $u$ to $v$ that do not share an edge. On the other hand, if two nodes are in different vertex/edge-biconnected components, any path between them must go through some cut vertex/edge. Therefore, cut vertices/edges can be regarded as ``hubs'' in a graph that link different subgraphs into a whole. Furthermore, the link between cut vertices/edges and biconnected components forms a \emph{tree} structure, which are called the \emph{block cut tree} (cf. \cref{fig:block_cut_tree}).
+
+\begin{definition}
+\label{def:bcetree}
+\normalfont (\textbf{Block cut-edge tree}) The block cut-edge tree of graph $G=(\gV,\gE)$ is defined as follows: $\operatorname{BCETree}(G):=(\mathrm{BCC}^\mathrm{E}(G),\gE^\mathrm{E})$, where
+\begin{equation*}
+\setlength{\abovedisplayskip}{2pt}
+\setlength{\belowdisplayskip}{0pt}
+    \gE^\mathrm{E}:=\left\{\{\gS_1,\gS_2\}:\gS_1,\gS_2\in\mathrm{BCC}^\mathrm{E}(G),\exists u\in\gS_1,v\in\gS_2,\text{s.t. }\{u,v\}\in\gE\right\}.
+\end{equation*}
+\end{definition}
+\begin{definition}
+\label{def:bcvtree}
+\normalfont (\textbf{Block cut-vertex tree}) The block cut-vertex tree of graph $G=(\gV,\gE)$ is defined as follows: $\operatorname{BCVTree}(G):=(\mathrm{BCC}^\mathrm{V}(G)\cup\gV^\mathrm{Cut},\gE^\mathrm{V})$, where $\gV^\mathrm{Cut}\subset\gV$ is the set containing all cut vertices of $G$ and
+\begin{equation*}
+\setlength{\abovedisplayskip}{0pt}
+\setlength{\belowdisplayskip}{0pt}
+    \gE^\mathrm{V}:=\left\{\{\gS,v\}:\gS\in\mathrm{BCC}^\mathrm{V}(G),v\in\gV^\mathrm{Cut},v\in\gS\right\}.
+\end{equation*}
+\end{definition}
+\vspace{-5pt}
+
+The following theorem shows that all concepts related to biconnectivity can be efficiently computed.
+
+\begin{theorem}
+\label{thm:tarjan}
+ The problems related to biconnectivity, including identifying all cut vertices/edges, finding all biconnected components ($\mathrm{BCC}^\mathrm{V}(G)$ and $\mathrm{BCC}^\mathrm{E}(G)$), and building block cut trees ($\operatorname{BCVTree}(G)$ and $\operatorname{BCETree}(G)$), can all be solved using the Depth-First Search algorithm, within a computation complexity linear in the graph size, i.e. $\Theta(|\gV|+|\gE|)$.
+\end{theorem}
+
+\vspace{-4pt}
+
+\textbf{Isomorphism and color refinement algorithms}. Two graphs $G=(\gV_G,\gE_G)$ and $H=(\gV_H,\gE_H)$ are \emph{isomorphic} (denoted as $G\simeq H$) if there is an \emph{isomorphism} (bijective mapping) $f:\gV_G\to\gV_H$ such that for any nodes $u,v\in\gV_G$, $\{u,v\}\in\gE_G$ iff $\{f(u),f(v)\}\in\gE_H$. A color refinement algorithm is an algorithm that outputs a \emph{color mapping} $\chi_G:\gV_G\to\gC$ when taking graph $G$ as input, where $\gC$ is called the \emph{color set}. A valid color refinement algorithm must preserve \emph{invariance} under isomorphism, i.e., $\chi_G(u)=\chi_H(f(u))$ for isomorphism $f$ and node $u\in\gV_G$. As a result, it can be used as a necessary test for graph isomorphism by comparing the multisets $\ldblbrace \chi_G(u):u\in\gV_G\rdblbrace$ and $\ldblbrace \chi_H(u):u\in\gV_H\rdblbrace$, which we call the \emph{graph representations}. Similarly, $\chi_G(u)$ can be seen as the \emph{node feature} of $u\in\gV_G$, and $\ldblbrace \chi_G(u),\chi_G(v)\rdblbrace$ corresponds to the {edge feature} of $\{u,v\}\in\gE_G$. All algorithms studied in this paper fit the color refinement framework, and please refer to \cref{sec:algorithms} for a precise description of several representatives (e.g., the classic 1-WL and $k$-FWL algorithms).
+
+\textbf{Problem setup}. This paper focuses on the following three types of problems with increasing difficulties. \emph{Firstly}, we say a color refinement algorithm can distinguish whether a graph is vertex/edge-biconnected, if for any graphs $G,H$ where $G$ is vertex/edge-biconnected but $H$ is not, their graph representations are different, i.e. $\ldblbrace \chi_G(u):u\in\gV_G\rdblbrace\neq\ldblbrace \chi_H(u):u\in\gV_H\rdblbrace$. \emph{Secondly}, we say a color refinement algorithm can identify cut vertices if for any graphs $G, H$ and nodes $u\in\gV_G,v\in\gV_H$ where $u$ is a cut vertex but $v$ is not, their node features are different, i.e. $\chi_G(u)\neq \chi_H(v)$. Similarly, it can identify cut edges if for any $\{u,v\}\in\gE_G$ and $\{w,x\}\in\gE_H$ where $\{u,v\}$ is a cut edge but $\{w,x\}$ is not, their edge features are different, i.e. $\ldblbrace\chi_G(u),\chi_G(v)\rdblbrace\neq \ldblbrace\chi_H(w),\chi_H(x)\rdblbrace$. \emph{Finally}, we say a color refinement algorithm can distinguish block cut-vertex/edge trees, if for any graphs $G,H$ satisfying $\operatorname{BCVTree}(G)\not\simeq\operatorname{BCVTree}(H)$ (or $\operatorname{BCETree}(G)\not\simeq\operatorname{BCETree}(H)$), their graph representations are different, i.e. $\ldblbrace \chi_G(u):u\in\gV_G\rdblbrace\neq\ldblbrace \chi_H(u):u\in\gV_H\rdblbrace$.
+
+\section{Investigating Known GNN Architectures via Biconnectivity}
+\label{sec:biconnect}
+In this section, we provide a comprehensive investigation of popular GNN variants in literature, including the classic MPNNs, Graph Substructure Networks (GSN)  and its variant , GNN with lifting transformations (MPSN and CWN) , GraphSNN , and Subgraph GNNs (e.g., ). Surprisingly, we find most of these works are not expressive for \emph{any} biconnectivity problems listed above. The only exceptions are the ESAN  and several variants, where we give a rigorous justification of their expressive power for both vertex/edge-biconnectivity.
+
+\subsection{Counterexamples}
+\label{sec:counterexamples}
+\textbf{1-WL/MPNNs}. We first consider the classic 1-WL. We provide two principled class of counterexamples which are formally defined in \cref{example:1,example:2}, with a few special cases illustrated in \cref{fig:counterexamples}. For each pair of graphs in \cref{fig:counterexamples}, the color of each node is drawn according to the 1-WL color mapping. It can be seen that the two graph representations are the same. Therefore,  1-WL cannot distinguish any biconnectivity problem listed in \cref{sec:preliminary}.
+
+\textbf{Substructure Counting WL/GSN}.  developed a principled approach to boost the expressiveness of MPNNs by incorporating \emph{substructure counts} into node features or the 1-WL aggregation procedure. The resulting algorithm, which we call the SC-WL, is detailed in \cref{sec:scwl}. However, we show no matter what sub-structures are used, the corresponding GSN still cannot solve any biconnectivity problem listed in \cref{sec:preliminary}. We give a proof in \cref{sec:counterexample_proof} for the \emph{general} case that allows arbitrary substructures, based on \cref{example:1,example:2}. We also point out that our negative result applies to the similar GNN variant in .
+
+\begin{theorem}
+\label{thm:scwl}
+Let $\gH=\{H_1,\cdots,H_k\}$, $H_i=(\gV_i,\gE_i)$ be any set of connected graphs and denote $n=\max_{i\in[k]}|\gV_i|$. Then SC-WL (\cref{sec:scwl}) using the substructure set $\gH$ cannot solve any vertex/edge-biconnectivity problem listed in \cref{sec:preliminary}. Moreover, there exist counterexample graphs whose sizes (both in terms of vertices and edges) are $O(n)$.
+\end{theorem}
+
+\vspace{-3pt}
+
+\textbf{GNNs with lifting transformations (MPSN/CWN)}.  considered another approach to design powerful GNNs by using graph \emph{lifting} transformations. In a nutshell, these approaches exploit higher-order graph structures such as cliques and cycles to design new WL aggregation procedures. Unfortunately, we show the resulting algorithms, called the SWL and CWL, still cannot solve any biconnectivity problem. Please see \cref{sec:counterexample_proof} (\cref{thm:swl_cwl}) for details.
+
+\textbf{Other GNN variants}. In \cref{sec:counterexample_proof}, we discuss other recently proposed GNNs, such as GraphSNN , GNN-AK , and NGNN . Due to space limit, we defer the corresponding negative results in \cref{thm:oswl,thm:gnnak,thm:dswl_adaptation}.
+
+\begin{figure}[t]
+    \vspace{-10pt}
+    \centering
+    \small
+    \setlength\tabcolsep{12pt}
+    \begin{tabular}{cccc}
+        \includegraphics[height=5.5em]{figure/counterexample1_up.pdf} & \includegraphics[height=5.5em]{figure/counterexample2_up.pdf} & \includegraphics[height=5.5em]{figure/counterexample3_up.pdf} & \includegraphics[height=5.5em]{figure/counterexample4_up.pdf}\\
+        \includegraphics[height=5.5em]{figure/counterexample1_down.pdf} & \includegraphics[height=5.5em]{figure/counterexample2_down.pdf} & \includegraphics[height=5.5em]{figure/counterexample3_down.pdf} & \includegraphics[height=5.5em]{figure/counterexample4_down.pdf}\\
+        (a) & (b) & (c) & (d)
+    \end{tabular}
+    \vspace{-7pt}
+    \caption{\looseness=-1 Illustration of four representative counterexamples (see \cref{example:1,example:2} for general definitions). Graphs in the first row have cut vertices (outlined in bold red) and some also have cut edges (denoted as red lines), while graphs in the second row do not have any cut vertex or cut edge.}
+    \label{fig:counterexamples}
+    \vspace{-10pt}
+\end{figure}
+
+\subsection{Provable expressiveness of ESAN and DSS-WL}
+\label{sec:esan}
+We next switch our attention to a new type of GNN framework proposed in , called the Equivariant Subgraph Aggregation Networks (ESAN). The central algorithm in EASN is called the DSS-WL. Given a graph $G$, DSS-WL first generates a bag of vertex-shared (sub)graphs $\gB^\pi_G=\ldblbrace G_1,\cdots,G_m\rdblbrace$ according to a graph generation policy $\pi$. Then in each iteration $t$, the algorithm refines the color of each node $v$ in each subgraph $G_i$ by jointly aggregating its neighboring colors in the own subgraph and across all subgraphs. The aggregation formula can be written as:
+\begin{align}
+\label{eq:dsswl_aggregation}
+    \chi_{G_i}^t(v)&:= \operatorname{hash}\left(\chi_{G_i}^{t-1}(v),\ldblbrace \chi_{G_i}^{t-1}(u):u\in \mathcal N_{G_i}(v) \rdblbrace,\chi_{G}^{t-1}(v),\ldblbrace \chi_{G}^{t-1}(u):u\in \mathcal N_G(v) \rdblbrace\right),\\
+    \chi_G^t(v)&:= \operatorname{hash}\left(\ldblbrace \chi_{G_i}^{t}(v):i\in [m]\rdblbrace\right),
+\end{align}
+where $\operatorname{hash}$ is a perfect hash function. DSS-WL terminates when $\chi_G^t$ induces a stable vertex partition. In this paper, we consider \emph{node-based} graph generation policies, for which each subgraph is associated to a specific node, i.e. $\gB^\pi_G=\ldblbrace G_v:v\in\gV\rdblbrace$. Some popular choices are node deletion $\pi_\mathrm{ND}$, node marking $\pi_\mathrm{NM}$, $k$-ego-network $\pi_{\mathrm{EGO}(k)}$, and its node marking version $\pi_{\mathrm{EGOM}(k)}$. A full description of DSS-WL as well as different policies can be found in \cref{sec:dsswl} (\cref{alg:dsswl}).
+
+A fundamental question regarding DSS-WL is how expressive it is. While a straightforward analysis shows that DSS-WL is strictly more powerful than 1-WL, an in-depth understanding on \emph{what additional power} DSS-WL gains over 1-WL is still limited. The only new result is the very recent work of , who showed a 3-WL \emph{upper bound} for the expressivity of DSS-WL. Yet, such a result actually gives a limitation of DSS-WL rather than showing its power. Moreover, there is a large gap between the highly strong 3-WL and the weak 1-WL. In the following, we take a different perspective and prove that DSS-WL is expressive for both types of biconnectivity problems.
+
+\begin{theorem}
+\label{thm:dsswl}
+Let $G=(\gV_G,\gE_G)$ and $H=(\gV_H,\gE_H)$ be two graphs, and let $\chi_G$ and $\chi_H$ be the corresponding DSS-WL color mapping with node marking policy. Then the following holds:
+\begin{itemize}[topsep=0pt,leftmargin=30pt]
+\setlength{\itemsep}{0pt}
+    \vspace{-3pt}
+    \item For any two nodes $w\in\gV_G$ and $x\in\gV_H$, if $\chi_G(w)=\chi_H(x)$, then $w$ is a cut vertex if and only if $x$ is a cut vertex.
+    \vspace{-3pt}
+    \item For any two edges $\{w_1,w_2\}\in\gE_G$ and $\{x_1,x_2\}\in\gE_H$, if $\ldblbrace \chi_G(w_1),\chi_G(w_2)\rdblbrace=\ldblbrace \chi_H(x_1),\chi_H(x_2)\rdblbrace$, then $\{w_1,w_2\}$ is a cut edge if and only if $\{x_1,x_2\}$ is a cut edge.
+\end{itemize}
+\end{theorem}
+\vspace{-3pt}
+
+The proof of \cref{thm:dsswl} is highly technical and is deferred to \cref{sec:proof_dsswl}. By using the basic results derived in \cref{sec:property_of_wl}, we conduct a careful analysis of the DSS-WL color mapping and discover several important properties. They give insights on why DSS-WL can succeed in distinguishing biconnectivity, as we will discuss below.
+
+\textbf{How can DSS-WL distinguish biconnectivity?} We find that a crucial advantage of DSS-WL over the classic 1-WL is that DSS-WL color mapping \emph{implicitly} encodes \emph{distance information} (see \cref{thm:proof_dsswl_key}(e) and \cref{thm:proof_dsswl_cut_edge_1}). For example, two nodes $u\in\gV_G,v\in\gV_H$ will have different DSS-WL colors if the distance set $\ldblbrace \dis_G(u,w):w\in\gV_G\rdblbrace$ differs from $\ldblbrace \dis_H(v,w):w\in\gV_H\rdblbrace$. Our proof highlights that distance information plays a vital role in distinguishing edge-biconnectivity when combining with color refinement algorithms (detailed in \cref{sec:gdwl}), and it also helps distinguish vertex-biconnectivity (see the proof of \cref{thm:proof_dsswl_cut_vertex_3}). Consequently, our analysis provides a novel understanding and a strong justification for the success of DSS-WL in \emph{two} aspects: the graph representation computed by DSS-WL intrinsically encodes distance and biconnectivity information, both of which are fundamental structural properties of graphs but are lacking in 1-WL.
+
+\looseness=-1 \textbf{Discussions on graph generation policies}. Note that \cref{thm:dsswl} holds for node marking policy. In fact, the ability of DSS-WL to encode distance information heavily relies on node marking as shown in the proof of \cref{thm:proof_dsswl_key}. In contrast, we prove that the ego-network policy $\pi_{\mathrm{EGO}(k)}$ cannot distinguish cut vertices (\cref{thm:ego_policy}), using the counterexample given in \cref{fig:counterexamples}(c). Therefore, our result shows an inherent advantage of node marking than the ego-network policy in distinguishing a class of non-isomorphic graphs, which is raised as an open question in \citet[Section 5]{bevilacqua2022equivariant}. It also highlights a theoretical limitation of $\pi_{\mathrm{EGO}(k)}$ compared with its node marking version $\pi_{\mathrm{EGOM}(k)}$, a subtle difference that may not have received sufficient attention yet. For example, both the GNN-AK and GNN-AK-ctx architecture  cannot solve vertex-biconnectivity problems since it is similar to $\pi_{\mathrm{EGO}(k)}$ (see \cref{thm:gnnak}). On the other hand, the GNN-AK+ does not suffer from such a drawback although it also uses $\pi_{\mathrm{EGO}(k)}$, because it further adds distance encoding in each subgraph (which is more expressive than node marking).
+
+\textbf{Discussions on DS-WL}.  also considered a weaker version of DSS-WL, called the DS-WL, which aggregates the node color in each subgraph without interaction across different subgraphs (see formula (\ref{eq:dswl_update})). We show in \cref{thm:dswl_adaptation} that unfortunately, DS-WL with common node-based policies \emph{cannot} identify cut vertices when the color of each node $v$ is defined as its associated subgraph representation $G_v$. This theoretically reveals the importance of cross-graph aggregation and justifies the design of DSS-WL. Finally, we point out that  very recently proposed an extension of DS-WL that adds a final cross-graph aggregation procedure, for which our negative result may not hold. It may be an interesting direction to theoretically analyze the expressiveness of this type of DS-WL in future work.
+
+\vspace{-2pt}
+\section{Generalized Distance Weisfeiler-Lehman Test}
+\vspace{-2pt}
+\label{sec:gdwl}
+After an extensive review of prior GNN architectures, in this section we would like to formally study the following problem: can we design a principled and efficient GNN framework with provable expressiveness for biconnectivity? In fact, while in \cref{sec:esan} we have proved that DSS-WL can solve biconnectivity problems, it is still far from enough. Firstly, the corresponding GNNs based on DSS-WL is usually sophisticated due to the complex aggregation formula (\ref{eq:dsswl_aggregation}), which inspires us to study whether simpler architectures exist. More importantly, DSS-WL suffers from high computational costs in both time and memory. Indeed, it requires $\Theta(n^2)$ space and $\Theta(nm)$ time per iteration (using policy $\pi_\mathrm{NM}$) to compute node colors for a graph with $n$ nodes and $m$ edges, which is $n$ times costly than 1-WL. Given the theoretical \emph{linear} lower bound in \cref{thm:tarjan}, one may naturally raise the question of how to close the gap by developing more efficient color refinement algorithms.
+
+\vspace{-1pt}
+
+We approach the problem by rethinking the classic 1-WL test. We argue that a major weakness of 1-WL is that it is agnostic to \emph{distance information} between nodes, partly because each node can only ``see'' its \emph{neighbors} in aggregation. On the other hand, the DSS-WL color mapping implicitly encodes distance information as shown in \cref{sec:esan}, which inspires us to formally study whether incorporating distance in the aggregation procedure is crucial for solving biconnectivity problems. To this end, we introduce a novel color refinement framework which we call Generalized Distance Weisfeiler-Lehman (GD-WL). The update rule of GD-WL is very simple and can be written as:
+\begin{equation}
+    \label{eq:gdwl}
+    \chi_G^t(v):= \operatorname{hash}\left(\ldblbrace (d_G(v,u), \chi_G^{t-1}(u)):u\in \gV\rdblbrace\right),
+\end{equation}
+where $d_G$ can be an arbitrary distance metric. The full algorithm is described in \cref{alg:gdwl}.
+
+\vspace{-1pt}
+
+\textbf{SPD-WL for edge-biconnectivity}. As a special case, when choosing the \emph{shortest path distance} $d_G=\dis_G$, we obtain an algorithm which we call SPD-WL. It can be equivalently written as
+\begin{equation}
+\label{eq:spdwl}
+
+\begin{aligned}
+    \chi_G^t(v):= \operatorname{hash}&\left(\chi_G^{t-1}(v),\ldblbrace\chi_G^{t-1}(u):u\in\gN_G(v)\rdblbrace,\ldblbrace\chi_G^{t-1}(u):\dis_G(v,u)=2\rdblbrace,\right.\\
+    &\left.\cdots,\ldblbrace\chi_G^{t-1}(u):\dis_G(v,u)=n-1\rdblbrace,\ldblbrace\chi_G^{t-1}(u):\dis_G(v,u)=\infty\rdblbrace\right).
+\end{aligned}
+\end{equation}
+From (\ref{eq:spdwl}) it is clear that SPD-WL is strictly more powerful than 1-WL since it additionally aggregates the $k$-hop neighbors for all $k>1$. There have been several prior works related to SPD-WL, including using distance encoding as node features  or performing $k$-hop aggregation for some small $k$ (see \cref{sec:related_work_distance} for more related works and discussions). Yet, these works are either purely empirical or provide limited theoretical analysis (e.g., by focusing only on regular graphs). Instead, we introduce the general and more expressive SPD-WL framework with a rather different motivation and perform a systematic study on its expressive power. Our key result confirms that SPD-WL is fully expressive for all edge-biconnectivity problems listed in \cref{sec:preliminary}.
+
+\begin{theorem}
+\label{thm:spdwl}
+Let $G=(\gV_G,\gE_G)$ and $H=(\gV_H,\gE_H)$ be two graphs, and let $\chi_G$ and $\chi_H$ be the corresponding SPD-WL color mapping. Then the following holds:
+\begin{itemize}[topsep=0pt,leftmargin=30pt]
+\setlength{\itemsep}{0pt}
+    \vspace{-3pt}
+    \item For any two edges $\{w_1,w_2\}\in\gE_G$ and $\{x_1,x_2\}\in\gE_H$, if $\ldblbrace \chi_G(w_1),\chi_G(w_2)\rdblbrace=\ldblbrace \chi_H(x_1),\chi_H(x_2)\rdblbrace$, then $\{w_1,w_2\}$ is a cut edge if and only if $\{x_1,x_2\}$ is a cut edge.
+    \vspace{-3pt}
+    \item If $\ldblbrace \chi_G(w):w\in\gV_G\rdblbrace=\ldblbrace \chi_H(w):w\in\gV_H\rdblbrace$, then $\operatorname{BCETree}(G)\simeq\operatorname{BCETree}(H)$.
+\end{itemize}
+\end{theorem}
+
+\cref{thm:spdwl} is highly non-trivial and perhaps surprising at first sight, as it combines three seemingly unrelated concepts (i.e., SPD, biconnectivity, and the WL test) into a unified conclusion. We give a proof in \cref{sec:proof_spdwl}, which separately considers two cases: $\chi_G(w_1)\neq\chi_G(w_2)$ and $\chi_G(w_1)=\chi_G(w_2)$ (see \cref{fig:counterexamples}(b,d) for examples). For each case, the key technique in the proof is to construct an auxiliary graph (\cref{def:color_graph,def:aux_graph}) that precisely characterizes the structural relationship between nodes that have specific colors (see \cref{thm:spdwl_case1_5,thm:spdwl_case2_6}). Finally, we highlight that the second item of \cref{thm:spdwl} may be particularly interesting: while distinguishing general non-isomorphic graphs are known to be hard , we show distinguishing non-isomorphic graphs with different block cut-edge trees can be much easily solved by SPD-WL.
+
+\textbf{RD-WL for vertex-biconnectivity}. Unfortunately, while SPD-WL is fully expressive for edge-biconnectivity, it is not expressive for vertex-biconnectivity. We give a simple counterexample in \cref{fig:counterexamples}(c), where SPD-WL cannot distinguish the two graphs. Nevertheless, we find that by using a different distance metric, problems related to vertex-biconnectivity can also be fully solved. We propose such a choice called the \emph{Resistance Distance} (RD) (denoted as $\disR_G$), which is also a basic metric in graph theory  . Formally, the value of $\disR_G(u,v)$ is defined to be the effective resistance between nodes $u$ and $v$ when treating $G$ as an electrical network where each edge corresponds to a resistance of one ohm. We note that other generalized distances can also be considered .
+
+\looseness=-1 RD has many elegant properties. First, it is a valid \emph{metric}: indeed, RD is non-negative, semidefinite, symmetric, and satisfies the triangular inequality (see \cref{sec:detail_of_rdwl}). Moreover, similar to SPD, we also have $0\le\disR_G(u,v)\le n-1$, and $\disR_G(u,v)=\dis_G(u,v)$ if $G$ is a tree. In \cref{sec:detail_of_rdwl}, we further show that RD is highly related to the graph Laplacian and can be efficiently calculated.
+
+\begin{theorem}
+\label{thm:rdwl}
+Let $G=(\gV_G,\gE_G)$ and $H=(\gV_H,\gE_H)$ be two graphs, and let $\chi_G$ and $\chi_H$ be the corresponding RD-WL color mapping. Then the following holds:
+\begin{itemize}[topsep=0pt,leftmargin=30pt]
+\setlength{\itemsep}{0pt}
+    \vspace{-3pt}
+    \item For any two nodes $w\in\gV_G$ and $x\in\gV_H$, if $\chi_G(w)=\chi_H(x)$, then $w$ is a cut vertex if and only if $x$ is a cut vertex.
+    \vspace{-3pt}
+    \item If $\ldblbrace \chi_G(w):w\in\gV_G\rdblbrace=\ldblbrace \chi_H(w):w\in\gV_H\rdblbrace$, then $\operatorname{BCVTree}(G)\simeq\operatorname{BCVTree}(H)$.
+\end{itemize}
+\end{theorem}
+
+The form of \cref{thm:rdwl} exactly parallels \cref{thm:spdwl}, which shows that RD-WL is fully expressive for vertex-biconnectivity. We give a proof of \cref{thm:spdwl} in \cref{sec:proof_rdwl}. In particular, the proof of the second item is highly technical due to the challenges in analyzing the (complex) structure of the block cut-vertex tree. It also highlights that distinguishing non-isomorphic graphs that have different BCVTrees is much easier than the general case.
+
+Combining \cref{thm:spdwl,thm:rdwl} immediately yields the following corollary, showing that all biconnectivity problems can be solved within our proposed GD-WL framework.
+\begin{corollary}
+\label{thm:gdwl}
+When using both SPD and RD (i.e., by setting $d_G(u,v):=(\dis_G(u,v),\disR_G(u,v))$), the corresponding GD-WL is fully expressive for both vertex-biconnectivity and edge-biconnectivity.
+\end{corollary}
+
+\textbf{Computational cost}. The GD-WL framework only needs a complexity of $\Theta(n)$ space and $\Theta(n^2)$ time per-iteration for a graph of $n$ nodes and $m$ edges, both of which are strictly less than DSS-WL. In particular, GD-WL has the same space complexity as 1-WL, which can be crucial for large-scale tasks. On the other hand, one may ask how much computational overhead there is in preprocessing pairwise distances between nodes. We show in \cref{sec:detail_of_gdwl} that the computational cost can be trivially upper bounded by $O(nm)$ for SPD and $O(n^3)$ for RD. Note that the preprocessing step only needs to be executed once, and we find that the cost is negligible compared to the GNN architecture.
+
+\textbf{Practical implementation}. One of the main advantages of GD-WL is its high degree of parallelizability. In particular, we find GD-WL can be easily implemented using a Transformer-like architecture by injecting distance information into Multi-head Attention , similar to the structural encoding in Graphormer . The attention layer can be written as:
+\begin{equation}
+\setlength{\abovedisplayskip}{5pt}
+\setlength{\belowdisplayskip}{5pt}
+\label{eq:attention}
+    \mathbf Y^h=\left[\phi_1^h(\mathbf D)\odot \operatorname{softmax}\left(\mathbf X\mathbf W^h_Q(\mathbf X\mathbf W^h_K)^\top+\mathbf \phi_2^h(\mathbf D)\right)\right]\mathbf X\mathbf W^h_V,
+\end{equation}
+where $\mathbf X\in\mathbb R^{n\times d}$ is the input node features of the previous layer, $\mathbf D\in\mathbb R^{n\times n}$ is the distance matrix such that $D_{uv}=d_G(u,v)$, $\mathbf W^h_Q,\mathbf W^h_K,\mathbf W^h_V\in\mathbb R^{d\times d_H}$ are learnable weight matrices of the $h$-th head, $\phi_1^h$ and $\phi_2^h$ are elementwise functions applied to $\mathbf D$ (possibly parameterized), and $\odot$ denotes the elementwise multiplication. The results $\mathbf Y^h\in\mathbb R^{n\times d_H}$ across all heads $h$ are then combined and projected to obtain the final output $\mathbf Y=\sum_h \mathbf Y^h\mathbf W_O^h$ where $\mathbf W_O^h\in\mathbb R^{d_H\times d}$. We call the resulting architecture Graphormer-GD, and the full structure of Graphormer-GD is provided in \cref{sec:transformer}.
+
+It is easy to see that the mapping from $\mathbf X$ to $\mathbf Y$ in (\ref{eq:attention}) is \emph{equivariant} and simulates the GD-WL aggregation. Importantly, we have the following expressivity result, which precisely characterizes the power and limits of Graphormer-GD. We give a proof in \cref{sec:transformer}.
+\begin{theorem}
+\label{thm:Graphormer-GD-gdwl}
+Graphormer-GD is at most as powerful as GD-WL in distinguishing non-isomorphic graphs. Moreover, when choosing proper functions $\phi_1^h$ and $\phi_2^h$ and using a sufficiently large number of heads and layers, Graphormer-GD is as powerful as GD-WL.
+\end{theorem}
+
+\textbf{On the expressivity upper bound of GD-WL}. To complete the theoretical analysis, we finally provide an upper bound of the expressive power for our proposed SPD-WL and RD-WL, by studying the relationship with the standard 2-FWL (3-WL) algorithm.
+
+\begin{theorem}
+\label{thm:2fwl_powerful_than_gdwl}
+The 2-FWL algorithm is more powerful than both SPD-WL and RD-WL. Formally, the 2-FWL color mapping induces a finer vertex partition than that of both SPD-WL and RD-WL.
+\end{theorem}
+\vspace{-2pt}
+
+We give a proof in \cref{sec:proof_2fwl_powerful}. Using \cref{thm:2fwl_powerful_than_gdwl}, we arrive at the important corollary:
+\begin{corollary}
+\label{thm:2fwl_biconnectivity}
+The 2-FWL is fully expressive for both vertex-biconnectivity and edge-biconnectivity.
+\end{corollary}
+
+\textbf{A worst-case analysis of GD-WL for distance-regular graphs}. Since GD-WL heavily relies on distance information, one may wonder about its expressiveness in the worst-case scenario where distance information may not help distinguish certain non-isomorphic graphs, in particular, the class of distance-regular graphs . Due to space limit, we provide a comprehensive study of this question in \cref{sec:distance_regular}, where we give a precise and complete characterization of what types of distance-regular graphs SPD-WL/RD-WL/2-FWL can distinguish (with both theoretical results and counterexamples). The main result is present as follows:
+
+\begin{figure}[t]
+    \vspace{-25pt}
+    \centering
+    \small
+    \setlength\tabcolsep{6pt}
+    \begin{tabular}{cccc}
+        \includegraphics[height=9.5em]{figure/distance_regular_1.pdf} & \includegraphics[height=9.5em]{figure/distance_regular_2.pdf} & \includegraphics[height=9.5em]{figure/distance_regular_3.pdf} & \includegraphics[height=9.5em]{figure/distance_regular_4.pdf}\\
+        Dodecahedron & Desargues graph & 4x4 rook’s graph & Shrikhande graph\\
+        \multicolumn{2}{c}{(a) SPD-WL fails while RD-WL succeeds.} & \multicolumn{2}{c}{(b) Both SPD-WL and RD-WL fail.}
+    \end{tabular}
+    \vspace{-7pt}
+    \caption{Illustration of non-isomorphic distance-regular graphs.}
+    \label{fig:distance_regular_graphs}
+    \vspace{-10pt}
+\end{figure}
+
+\begin{theorem}
+\label{thm:distance_regular_maintext}
+    RD-WL is strictly more powerful than SPD-WL in distinguishing non-isomorphic distance-regular graphs. Moreover, RD-WL is as powerful as 2-FWL in distinguishing non-isomorphic distance-regular graphs.
+\end{theorem}
+
+The above theorem strongly justifies the power of resistance distance and our proposed GD-WL. Importantly, to our knowledge, this is the first result showing that a \emph{more efficient} WL algorithm can \emph{match} the expressive power of 2-FWL in distinguishing distance-regular graphs.
+
+\section{Experiments}
+\label{sec:experiments}
+
+In this section, we perform empirical evaluations of our proposed Graphormer-GD. We mainly consider the following two sets of experiments. \emph{Firstly}, we would like to verify whether Graphormer-GD can indeed learn biconnectivity-related metrics easily as our theory predicts. \emph{Secondly}, we would like to investigate whether GNNs with sufficient expressiveness for biconnectivity can also help real-world tasks and benefit the generalization performance as well. The code and models will be made publicly available at \url{https://github.com/lsj2408/Graphormer-GD}.
+
+\begin{wraptable}{r}{7.8cm}
+\vspace{-20pt}
+\caption{Accuracy on cut vertex (articulation point) and cut edge (bridge) detection tasks.}
+  \vspace{4px}
+  \label{tab:syn}
+  \centering
+  \resizebox{0.57\textwidth}{!}{ \renewcommand{\arraystretch}{1.1}
+  \small
+    \begin{tabular}{lcc}
+    \toprule
+    \thead{Model} & \thead{Cut Vertex \\ Detection}  & \thead{Cut Edge \\ Detection}\\ \midrule
+    GCN~ & $51.5\%$$\pm$$1.3\%$ & $62.4\%$$\pm$$1.8\%$ \\
+    GAT~ & $52.0\%$$\pm$$1.3\%$ & $62.8\%$$\pm$$1.9\%$ \\
+    GIN~ & $53.9\%$$\pm$$1.7\%$ &  $63.1\%$$\pm$$2.2\%$ \\
+    GSN~ & $60.1\%$$\pm$$1.9\%$ & $70.7\%$$\pm$$2.1\%$ \\
+    Graphormer~ & $76.4\%$$\pm$$2.8\%$ & $84.5\%$$\pm$$3.3\%$ \\
+    \midrule
+    Graphormer-GD (ours) & $100\%$ & $100\%$ \\
+    - w/o. Resistance Distance & $83.3\%$$\pm$$2.7\%$ & $100\%$ \\
+    \bottomrule
+    \end{tabular}
+    }
+\vspace{-8pt}
+\end{wraptable}
+
+\textbf{Synthetic tasks}. To test the expressive power of GNNs for biconnectivity metrics, we separately consider two tasks: $(\mathrm{i})$~Cut Vertex Detection and $(\mathrm{ii})$~Cut Edge Detection. Given a GNN model that outputs node features, we add a learnable prediction head that takes each node feature (or two node features corresponding to each edge) as input and predicts whether it is a cut vertex (cut edge) or not. The evaluation metric for both tasks is the graph-level accuracy, i.e., given a graph, the model prediction is considered correct only when all the cut vertices/edges are correctly identified. To make the results convincing, we construct a challenging dataset that comprises various types of hard graphs, including the regular graphs with cut vertices/edges and also \cref{example:1,example:2} mentioned in Section~\ref{sec:biconnect}. We also choose several GNN baselines with different levels of expressive power: $(\mathrm{i})$~classic MPNNs~; $(\mathrm{ii})$~Graph Substructure Network~; $(\mathrm{iii})$~Graphormer . The details of model configurations, dataset, and training procedure are provided in \cref{sec:synthetic_detail}.
+
+The results are presented in Table \ref{tab:syn}. It can be seen that baseline GNNs cannot perfectly solve these synthetic tasks. In contrast, the Graphormer-GD achieves 100\% accuracy on both tasks, implying that it can easily learn biconnectivity metrics even in very difficult graphs. Moreover, while using only SPD suffices to identify cut edges, it is still necessary to further incorporate RD to identify cut vertices. This is consistent with our theoretical results in \cref{thm:spdwl,thm:rdwl,thm:Graphormer-GD-gdwl}.
+
+\textbf{Real-world tasks}. We further study the empirical performance of our Graphormer-GD on the real-world benchmark: ZINC from Benchmarking-GNNs~.
+
+To show the scalability of Graphormer-GD, we train our models on both ZINC-Full (consisting of 250K molecular graphs) and ZINC-Subset (12K selected graphs).
+
+We comprehensively compare our model with prior expressive GNNs that have been publicly released. For a fair comparison, we ensure that the parameter budget of both Graphormer-GD and other compared models are around 500K, following~.
+
+Details of baselines and settings are presented in \cref{sec:realworld_detail}. 
+
+The results are shown in Table \ref{tab:zinc}, where our score is averaged over four experiments with different seeds. We also list the per-epoch training time of different models on ZINC-subset as well as their model parameters. It can be seen that Graphormer-GD surpasses or matches all competitive baselines on the test set of both ZINC-Subset and ZINC-Full. Furthermore, we find that the empirical performance of compared models align with their expressive power measured by graph biconnectivity. For example, Subgraph GNNs that are expressive for biconnectivity also consistently outperform classic MPNNs by a large margin.
+
+Compared with Subgraph GNNs, the main advantage of Graphormer-GD is that it is simpler to implement, has stronger parallelizability, while still achieving better performance. Therefore, we believe our proposed architecture is both effective and efficient and can be well extended to more practical scenarios like drug discovery.
+
+\textbf{Other tasks}. We also perform node-level experiments on two popular datasets: the Brazil-Airports and the Europe-Airports. Due to space limit, the results are shown in \cref{sec:node_task}.
+
+\begin{table}[t]
+\vspace{-28pt}
+\caption{Mean Absolute Error (MAE) on ZINC test set. Following~, the parameter budget of compared models is set to 500k. We use $^{*}$ to indicate the best performance.}
+  \vspace{2px}
+  \label{tab:zinc}
+  \small
+  
+  
+  
+  \centering
+  \resizebox{0.98\textwidth}{!}{ \renewcommand{\arraystretch}{1.0}
+    \begin{tabular}{clcccc}
+    \toprule
+    \multirow{2}{*}{Method} & \multirow{2}{*}{Model} & \multirow{2}{*}{Time (s)} & \multirow{2}{*}{Params} & \multicolumn{2}{c}{Test MAE}\\
+    & & & & ZINC-Subset & ZINC-Full \\ \midrule
+    
+    \multirow{7}{*}{MPNNs}
+    & GIN~ & 8.05 & 509,549 & 0.526$\pm$0.051 &  0.088$\pm$0.002 \\
+    & GraphSAGE~ & 6.02 & 505,341 & 0.398$\pm$0.002 & 0.126$\pm$0.003 \\
+    & GAT~ & 8.28 & 531,345 & 0.384$\pm$0.007 & 0.111$\pm$0.002 \\
+    & GCN~ & 5.85 & 505,079 & 0.367$\pm$0.011 & 0.113$\pm$0.002 \\
+
+    & MoNet~ & 7.19 & 504,013 & 0.292$\pm$0.006 & 0.090$\pm$0.002 \\
+    & \textls[-25]{GatedGCN-PE} & 10.74 & 505,011 & 0.214$\pm$0.006 & - \\
+    & MPNN(sum)~ & - &  480,805 & 0.145$\pm$0.007 & - \\
+    & PNA~ & - & 387,155 & 0.142$\pm$0.010 & - \\ 
+    \midrule
+    \multirow{2}{*}{\begin{tabular}[c]{@{}c@{}}Higher-order\\GNNs\end{tabular}} & RingGNN~ & 178.03 & 527,283 &  0.353$\pm$0.019 & - \\
+    & 3WLGNN~ & 179.35 & 507,603 &  0.303$\pm$0.068 & - \\
+    \midrule
+    \multirow{2}{*}{\begin{tabular}[c]{@{}c@{}}Substructure-\\based GNNs\end{tabular}}
+    & GSN~ & - & $\sim$500k & 0.101$\pm$0.010 & - \\
+    & CIN-Small~ & - & $\sim$100k & 0.094$\pm$0.004 & 0.044$\pm$0.003 \\ \midrule
+    
+    \multirow{5}{*}{\begin{tabular}[c]{@{}c@{}}Subgraph\\GNNs\end{tabular}}
+    & NGNN~ & - & $\sim$500k & 0.111$\pm$0.003 & 0.029$\pm$0.001 \\
+    
+    
+    
+    & DSS-GNN~ & - & 445,709 & 0.097$\pm$0.006 & - \\
+    & GNN-AK~ & - & $\sim$500k & 0.105$\pm$0.010 & - \\
+    
+    & GNN-AK+~ & - & $\sim$500k & 0.091$\pm$0.011 & - \\
+    & SUN~ & 15.04 & 526,489 & 0.083$\pm$0.003 & - \\ \midrule
+    
+    \multirow{4}{*}{\begin{tabular}[c]{@{}c@{}}Graph\\Transformers\end{tabular}}
+    & GT~ & - & 588,929 & 0.226$\pm$0.014 & - \\
+    & SAN~ & - & 508,577 & 0.139$\pm$0.006 & - \\
+    & Graphormer~ & 12.26 & 489,321 & 0.122$\pm$0.006 & 0.052$\pm$0.005 \\ 
+    & URPE~ & 12.40 & 491,737 & 0.086$\pm$0.007 & 0.028$\pm$0.002 \\
+    \midrule
+    
+
+    GD-WL & Graphormer-GD (ours) & 12.52 & 502,793 & ~~0.081$\pm$0.009$^{*}$ & ~~0.025$\pm$0.004$^{*}$ \\\bottomrule
+    \end{tabular}
+    }
+    \vspace{-8pt}
+\end{table}
+
+    
+
+    
+
+    
+
+    
+
+    
+
+\section{conclusion}
+
+In this paper, we systematically investigate the expressive power of GNNs via the perspective of graph biconnectivity.
+Through the novel lens, we gain strong theoretical insights into the power and limits of existing popular GNNs. We then introduce the principled GD-WL framework that is fully expressive for all biconnectivity metrics.
+
+We further design the Graphormer-GD architecture that is provably powerful while enjoying practical efficiency and parallelizability. Experiments on both synthetic and real-world datasets demonstrate the effectiveness of Graphormer-GD.
+
+There are still many promising directions that have not yet been explored. \emph{Firstly}, it remains an important open problem whether biconnectivity can be solved more efficiently in $o(n^2)$ time using \emph{equivariant} GNNs. \emph{Secondly}, a deep understanding of GD-WL is generally lacking. For example, we conjecture that RD-WL can encode graph spectral  and is strictly more powerful than SPD-WL in distinguishing general graphs. \emph{Thirdly}, it may be interesting to further investigate more expressive distance (structural) encoding schemes beyond RD-WL and explore how to encode them in Graph Transformers. \emph{Finally}, one can extend biconnectivity to a hierarchy of higher-order variants (e.g., tri-connectivity), which provides a completely different view parallel to the WL hierarchy to study the expressive power and guide designing provably powerful GNNs architectures.
+
+\subsubsection*{Acknowledgments}
+Bohang Zhang is grateful to Ruichen Li for his great help in discussing and checking several of the main results in this paper, including \cref{thm:scwl,thm:dsswl,thm:spdwl,thm:distance_regular_maintext}. In particular, after the initial submission, Ruichen Li discovered a simpler proof of \cref{thm:spdwl_case1_2} and helped complete the proof of \cref{thm:rd_distance_regular}. Bohang Zhang would also thank Yiheng Du, Kai Yang amd Ruichen Li for correcting some small mistakes in the proof of \cref{thm:proof_dsswl_cut_vertex_1,thm:proof_rdwl_part1_0}.
+
+\bibliography{iclr2023_conference}
+
+\bibliographystyle{iclr2023_conference}
+
+\newpage

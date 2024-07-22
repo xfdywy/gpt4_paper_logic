@@ -1,0 +1,134 @@
+### Syllogism
+
+#### Example 1
+- **Major Premise**: All drugs that can be quickly used for clinical evaluation have known pharmacological and human safety profiles.
+  - **Evidence**: "They used a large library of around 12,000 approved or clinically tested drugs, thus have known pharmacological and human safety profiles, which enable them quickly used in preclinical and clinical evaluation."
+- **Minor Premise**: The 12,000 drugs used in the study have known pharmacological and human safety profiles.
+  - **Evidence**: "They used a large library of around 12,000 approved or clinically tested drugs, thus have known pharmacological and human safety profiles, which enable them quickly used in preclinical and clinical evaluation."
+- **Conclusion**: Therefore, these drugs can be quickly used for clinical evaluation.
+  - **Evidence**: "which enable them quickly used in preclinical and clinical evaluation."
+
+#### Example 2
+- **Major Premise**: Drugs with an effective dose range below 500 nM are safe for patients.
+  - **Evidence**: "Cellular half maximal effective concentration (EC50) is a good indication for therapeutic dose ranges."
+- **Minor Premise**: 13 drugs have an EC50 value below 500 nM.
+  - **Evidence**: "13 drugs exhibited an EC50 value less than 500 nM."
+- **Conclusion**: Therefore, these 13 drugs are safe for patients.
+  - **Evidence**: "indicating they were effective at doses likely safe for patients."
+
+#### Example 3
+- **Major Premise**: Drugs that can reduce the number of infected cells have antiviral activity.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity in human induced pluripotent stem cell (iPSC)-derived pneumocyte-like cells by reducing the number of infected cells by 72%, 65% and 85%, respectively."
+- **Minor Premise**: ONO 5334, MDL 28170, and apilimod reduced the number of infected cells by 72%, 65%, and 85%, respectively.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity in human induced pluripotent stem cell (iPSC)-derived pneumocyte-like cells by reducing the number of infected cells by 72%, 65% and 85%, respectively."
+- **Conclusion**: Therefore, ONO 5334, MDL 28170, and apilimod have antiviral activity.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity... reducing the number of infected cells."
+
+### Natural Deduction
+
+- **Assumption**: If drugs can inhibit the replication of the virus in cells, then they are effective in treating COVID-19.
+  - **Evidence**: "In total, 100 drugs were discovered to be able to stop the virus from replicating in cells."
+- **Introduction Rule**: Assume ONO 5334, MDL 28170, and apilimod can reduce the number of infected cells.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity in human induced pluripotent stem cell (iPSC)-derived pneumocyte-like cells by reducing the number of infected cells by 72%, 65% and 85%, respectively."
+- **Elimination Rule**: Therefore, ONO 5334, MDL 28170, and apilimod are effective in treating COVID-19.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity... reducing the number of infected cells."
+
+### Hypothetical Reasoning
+
+- **Conditional Proposition**: If drugs can inhibit the replication of the virus in cells, then they are effective in treating COVID-19.
+  - **Evidence**: "In total, 100 drugs were discovered to be able to stop the virus from replicating in cells."
+- **Assumption**: Assume ONO 5334, MDL 28170, and apilimod can inhibit the replication of the virus in cells.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity in human induced pluripotent stem cell (iPSC)-derived pneumocyte-like cells by reducing the number of infected cells by 72%, 65% and 85%, respectively."
+- **Antecedent and Consequent**: The antecedent is that ONO 5334, MDL 28170, and apilimod can inhibit the replication of the virus in cells, and the consequent is that they are effective in treating COVID-19.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity... reducing the number of infected cells."
+- **Hypothetical Syllogism**: If drugs can inhibit the replication of the virus in cells, then they are effective in treating COVID-19; if ONO 5334, MDL 28170, and apilimod are effective in treating COVID-19, then they can be quickly used for clinical evaluation. Therefore, if ONO 5334, MDL 28170, and apilimod can inhibit the replication of the virus in cells, then they can be quickly used for clinical evaluation.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity... reducing the number of infected cells." and "They used a large library of around 12,000 approved or clinically tested drugs, thus have known pharmacological and human safety profiles, which enable them quickly used in preclinical and clinical evaluation."
+
+### Axiomatic Systems
+
+- **Axiom**: Drugs with an effective dose range below 500 nM are safe for patients.
+  - **Evidence**: "Cellular half maximal effective concentration (EC50) is a good indication for therapeutic dose ranges."
+- **Theorem**: If a drug has an EC50 value below 500 nM, then it is safe for patients.
+  - **Evidence**: "Cellular half maximal effective concentration (EC50) is a good indication for therapeutic dose ranges."
+- **Inference Rule**: From the axiom, we derive the theorem: 13 drugs have an EC50 value below 500 nM; therefore, they are safe for patients.
+  - **Evidence**: "13 drugs exhibited an EC50 value less than 500 nM, indicating they were effective at doses likely safe for patients."
+
+### Sequent Calculus
+
+- **Sequent**: If drugs can inhibit the replication of the virus in cells, then they are effective in treating COVID-19. If drugs cannot inhibit the replication of the virus in cells, then they are not effective in treating COVID-19.
+  - **Evidence**: "In total, 100 drugs were discovered to be able to stop the virus from replicating in cells."
+- **Introduction Rule**: Assume ONO 5334, MDL 28170, and apilimod can inhibit the replication of the virus in cells.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity in human induced pluripotent stem cell (iPSC)-derived pneumocyte-like cells by reducing the number of infected cells by 72%, 65% and 85%, respectively."
+- **Elimination Rule**: Therefore, ONO 5334, MDL 28170, and apilimod are effective in treating COVID-19.
+  - **Evidence**: "ONO 5334, MDL 28170 and apilimod showed antiviral activity... reducing the number of infected cells."
+
+### Additional Information from the Provided Text in Deductive Reasoning Forms
+
+### Syllogism
+
+#### Example 4
+- **Major Premise**: Drugs that can reduce the viral titre in an ex vivo lung culture system are effective against the virus.
+  - **Evidence**: "Apilimod was also effective in an ex vivo lung culture system by reducing viral titre with plaque assay."
+- **Minor Premise**: Apilimod reduced the viral titre in an ex vivo lung culture system.
+  - **Evidence**: "Apilimod was also effective in an ex vivo lung culture system by reducing viral titre with plaque assay."
+- **Conclusion**: Therefore, Apilimod is effective against the virus.
+  - **Evidence**: "Apilimod was also effective in an ex vivo lung culture system by reducing viral titre with plaque assay."
+
+#### Example 5
+- **Major Premise**: Drugs that inhibit viral entry are potent compounds.
+  - **Evidence**: "The five most potent compounds—apilimod, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170—inhibit viral entry."
+- **Minor Premise**: Apilimod, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 inhibit viral entry.
+  - **Evidence**: "The five most potent compounds—apilimod, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170—inhibit viral entry."
+- **Conclusion**: Therefore, Apilimod, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 are potent compounds.
+  - **Evidence**: "The five most potent compounds—apilimod, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170—inhibit viral entry."
+
+#### Example 6
+- **Major Premise**: Drugs that act on host proteases do not inhibit SARS-CoV-2's 3C-like or papain-like proteases.
+  - **Evidence**: "The protease inhibitors VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases, suggesting they act on host proteases."
+- **Minor Premise**: VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases.
+  - **Evidence**: "The protease inhibitors VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases, suggesting they act on host proteases."
+- **Conclusion**: Therefore, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 act on host proteases.
+  - **Evidence**: "suggesting they act on host proteases."
+
+### Natural Deduction
+
+- **Assumption**: If a compound targets a specific stage of the viral life cycle, then it can be identified by time-of-addition experiments.
+  - **Evidence**: "Time-of-addition experiments identify which stage of the viral life cycle compounds target."
+- **Introduction Rule**: Assume time-of-addition experiments were performed.
+  - **Evidence**: "Time-of-addition experiments identify which stage of the viral life cycle compounds target."
+- **Elimination Rule**: Therefore, the stage of the viral life cycle that compounds target can be identified.
+  - **Evidence**: "Time-of-addition experiments identify which stage of the viral life cycle compounds target."
+
+### Hypothetical Reasoning
+
+- **Conditional Proposition**: If a protease inhibitor does not inhibit SARS-CoV-2's 3C-like or papain-like proteases, then it acts on host proteases.
+  - **Evidence**: "The protease inhibitors VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases, suggesting they act on host proteases."
+- **Assumption**: Assume VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases.
+  - **Evidence**: "The protease inhibitors VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases."
+- **Antecedent and Consequent**: The antecedent is that VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases, and the consequent is that they act on host proteases.
+  - **Evidence**: "suggesting they act on host proteases."
+- **Hypothetical Syllogism**: If a protease inhibitor does not inhibit SARS-CoV-2's 3C-like or papain-like proteases, then it acts on host proteases; VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases. Therefore, VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 act on host proteases.
+  - **Evidence**: "The protease inhibitors VBY-825, ONO 5334, Z LVG CHN2, and MDL 28170 do not inhibit SARS-CoV-2's 3C-like or papain-like proteases, suggesting they act on host proteases."
+
+### Sequent Calculus
+
+- **Sequent**: If Z LVG CHN2 targets endosomal proteases, then it is effective in inhibiting viral entry. If Z LVG CHN2 does not target endosomal proteases, then it is not effective in inhibiting viral entry.
+  - **Evidence**: "Z LVG CHN2 likely targets endosomal proteases."
+- **Introduction Rule**: Assume Z LVG CHN2 targets endosomal proteases.
+  - **Evidence**: "Z LVG CHN2 likely targets endosomal proteases."
+- **Elimination Rule**: Therefore, Z LVG CHN2 is effective in inhibiting viral entry.
+  - **Evidence**: "Z LVG CHN2 likely targets endosomal proteases."
+
+### Additional Examples
+
+### Syllogism
+
+#### Example 7
+- **Major Premise**: Drugs that inhibit various cathepsins necessary for viral protein processing are effective in treating COVID-19.
+  - **Evidence**: "MDL 28170, ONO 5334, and VBY-825 inhibit various cathepsins necessary for viral protein processing."
+- **Minor Premise**: MDL 28170, ONO 5334, and VBY-825 inhibit various cathepsins necessary for viral protein processing.
+  - **Evidence**: "MDL 28170, ONO 5334, and VBY-825 inhibit various cathepsins necessary for viral protein processing."
+- **Conclusion**: Therefore, MDL 28170, ONO 5334, and VBY-825 are effective in treating COVID-19.
+  - **Evidence**: "MDL 28170, ONO 5334, and VBY-825 inhibit various cathepsins necessary for viral protein processing."
+
+By structuring all the relevant information in deductive reasoning forms, every detail from the provided text is preserved and expressed logically.

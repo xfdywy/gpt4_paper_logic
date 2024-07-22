@@ -1,0 +1,383 @@
+
+\documentclass{article} 
+\usepackage{iclr2023_conference,times}
+
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{subfigure}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{eqparbox}
+\usepackage{booktabs}
+\newcommand{\p}[2]{\mathbb{P}_{[#1]}^{#2}}
+\newcommand{\pp}[2]{p_{[#1]}^{#2}}
+\newcommand{\huaf}{\mathcal{F}}
+\newcommand{\s}{\tilde{s}}
+\newcommand{\tr}{\tilde{r}}
+\newcommand{\ta}{\tilde{a}}
+\newcommand{\llVert}{\left\Vert}
+\newcommand{\rrVert}{\right\Vert}
+\newcommand{\hatw}[1]{\widehat{#1}}
+\newcommand{\vmax}{V_{max}}
+\newcommand{\xv}{\mathbf{x}}
+\newcommand{\av}{\mathbf{a}}
+\newcommand{\bigspace}{\qquad\qquad}
+
+\renewcommand{\algorithmiccomment}[1]{\hfill\eqparbox{COMMENT}{\# #1}}
+\newcommand\LONGCOMMENT[1]{
+  \hfill\#\ \begin{minipage}[t]{\eqboxwidth{COMMENT}}#1\strut\end{minipage}
+}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}}
+
+\newcommand{\lijun}[1]{ {#1}}
+\newcommand{\yue}[1]{ {#1}}
+\newcommand{\revision}[1]{{#1}}
+
+\title{Making Better Decision by  Directly Planning  in Continuous Control}
+
+\author{Jinhua~Zhu$^1$, Yue~Wang$^2$, Lijun~Wu$^2$,\\
+\textbf{Tao~Qin$^2$, Wengang~Zhou$^1$, Tie-Yan~Liu$^2$, Houqiang~Li$^1$}\\
+$^1$University of Science and Technology of China; \\
+$^2$Microsoft Research AI4Science\\
+$^1$\texttt{teslazhu@mail.ustc.edu.cn},\;\texttt{\{zhwg,lihq\}@ustc.edu.cn}\\
+$^2$\texttt{\{yuwang5,lijuwu,taoqin,tyliu\}@microsoft.com}\\
+}
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\iclrfinalcopy 
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+ 
+
+By properly utilizing the learned environment model, model-based reinforcement learning methods can improve the sample efficiency for decision-making problems.
+Beyond using the learned environment model to train a policy, the success of MCTS-based methods shows that directly incorporating the learned environment model as a planner to make decisions might be more effective. 
+However, when action space is of high dimension and continuous, directly planning according to the learned model is costly and non-trivial. Because of two challenges: (1) the infinite number of candidate actions and (2) the temporal dependency between actions in different timesteps.
+To address these challenges, inspired by Differential Dynamic Programming (DDP) in optimal control theory, we design a novel Policy Optimization with Model Planning (POMP) algorithm, which incorporates a carefully designed Deep Differential Dynamic Programming (D3P) planner into the model-based RL framework. 
+ In D3P planner, (1) to effectively plan in the continuous action space, we construct a locally quadratic programming problem that uses a gradient-based optimization process to replace search. (2) To take the temporal dependency of actions at different timesteps into account, we leverage the updated and latest actions of previous timesteps (i.e., step $1, \cdots, h-1$) to update the action of the current step (i.e., step $h$),   instead of updating all actions simultaneously. We  theoretically prove the convergence rate for our D3P planner and analyze the effect of the feedback term.
+
+In practice, to effectively apply the neural network based D3P planner in reinforcement learning, we leverage the policy network to   initialize   the action sequence and keep the action update conservative in the planning process. 
+Experiments demonstrate that POMP consistently improves sample efficiency on widely used continuous control tasks. Our code is released at   \url{https://github.com/POMP-D3P/POMP-D3P}. 
+
+\end{abstract}
+\section{Introduction}
+
+Model-based reinforcement learning (RL)~ has shown its promise to be a general-purpose tool for solving sequential decision-making problems. 
+Different from model-free RL algorithms~, for which the controller directly learns a complex policy from real off-policy data, model-based RL methods first learn a predictive model about the unknown dynamics  and then leverage the learned model to help the policy learning. 
+With several key innovations~, model-based RL algorithms have shown outstanding data efficiency and performance compared to their model-free counterparts, which make it possible to be applied in real-world physical systems when data collection is arduous and time-consuming~.
+
+\revision{There are mainly two directions to leverage the learned model in model-based RL, though not mutually exclusive. In the first class, the models   play an auxiliary role to only affect the decision-making by helping the policy learning~. In the second class, the model is used to sample pathwise trajectory and then score this sampled actions~. Our work falls into the second class to directly use the model as a planner (rather than only help the policy learning).
+Some recent papers~ have started walking in this direction, and they have shown some cases to support the motivation behind it. For example, in some scenarios~, the policy might be very complex while the model is relatively simple to be learned.  } 
+
+These idea is easy to be implemented in the discrete action space  where MCTS is powerful to do the planning by searching~.
+However, when the action space is continuous, the tree-based search method can not be applied trivially. 
+There are two key challenges. 
+(1) Continuous and high-dimensional actions imply that the number of candidate actions is infinite. 
+(2)The temporal dependency between actions implies that the action update in previous timesteps can influence the later actions. Thus, trajectory optimization in continuous action space is still a challenge and lacks enough investigation. 
+
+To address the above challenges, in this paper, we propose a Policy Optimization with Model Planning (POMP) algorithm in the model-based RL framework, in which a novel Deep Differentiable Dynamic Programming (D3P) planner is designed.     \lijun{Since model-based RL is  closely related to the optimal control theory, the high efficiency of differential dynamic programming (DDP)~ algorithm in optimal control theory inspires us to design an algorithm about dynamic programming. However, since the DDP requires a known model and a high computational cost, applying the DDP  algorithm to DRL is nontrivial.}
+
+The D3P planner aims to optimize the action sequence in the trajectory. The key innovation in D3P is that we leverage first-order Taylor expansion of the optimal Bellman equation to get the action update signal efficiently, which intuitively exploits the differentiability of the learned model. We can theoretically prove the convergence rate of D3P under mild assumptions. 
+
+Specifically, (1) D3P uses the first-order Taylor expansion of the optimal Bellman equation but still constructs a local quadratic objective function. Thus, by leveraging the analytic formulation of the minimizer of the quadratic function, D3P can efficiently get the local optimal action. 
+(2) Besides, a feedback term is introduced in D3P with the help of the Bellman equation. In this way, D3P updates the action in current step by considering the action update in previous timesteps during planning. 
+
+Note that D3P is a plug-and-play algorithm without introducing extra parameters.
+
+When we integrate the D3P planner into our POMP algorithm under the model-based RL framework, the practical challenge is that the neural network-based learned model is always highly nonlinear and with limited generalization ability. Hence the planning process may be misled when the initialization is bad or the action is out-of-distribution. 
+Therefore, we propose to leverage the learned policy to provide the initialization of the action before planning and provide a conservative term at the planning to admit the conservation principle, in order to keep the small error of the learned model along the planning process.
+Overall speaking, our POMP algorithm integrates the learned model, the critic, and the policy closely to make better decisions. 
+
+For evaluation, we conduct several experiments on the benchmark MuJoCo  continuous control tasks. The results show  our proposed method can significantly improve the sample efficiency  and asymptotic performance. Besides, comprehensive ablation studies are also performed to verify the necessity and effectiveness of our proposed D3P planner.
+
+The contributions of our work are summarized as follows:
+(1) We theoretically derive the D3P planner and prove its convergence rate. 
+(2) We design a POMP algorithm, which refines the actions in the trajectory with the D3P planner in an efficient way. 
+(3) Extensive experimental results  demonstrate the superiority of our method in terms of both sample efficiency and asymptotic performance. 
+
+\section{Related work}
+
+The full version of the related work is in Appendix \ref{sec:related work}, we briefly introduce several highly related works here. In general, model-based RL for solving decision-making problems can be divided into three perspectives: model learning, policy learning, and decision-making. Moreover, optimal control theory also concerns the decision-making problem and is deeply related to model-based RL.
+
+\textbf{Model learning:} How to learn a good model to support decision-making is crucial in model-based RL. There are two main aspects of the work: the model structure designing~ and the loss designing~. 
+
+\textbf{Policy learning:} 
+Two methods are always used to learn the policy by using the learned model. One is to serve the learned model as a black-box simulator to generate the data~. Another way is to use the learned model to calculate the policy gradient~.
+
+\textbf{Decision-making:}
+When making the decision, we need to generate the actions that can achieve our goal. Many of the model-based RL methods make the decision by using the learned policy solely~. 
+Similar to our paper, some works also try to make decisions by using the learned model, but the majority   only focus on the discrete action space. The well-known MCTS method achieves a lot of success. For example, the well-known Alpha Zero~, MuZero~.
+There are only a few works that study the continuous action space, such as the Continuous UCT~, the sampled MuZero~, \yue{the TreePI~,} and the TD-MPC~.
+
+\textbf{Optimal control theory:}
+Beyond deep RL, optimal control  also considers the decision-making problem but rather relies on the known and continuous transition model. 
+In modern optimal control, Model Predictive Control (MPC)~ framework is always adopted when the environment is highly non-linear. In MPC, the action is planned during the execution by using the model, and such a procedure is called trajectory optimization. \yue{Plenty of previous works~ use MPC framework to solve  the continuous control tasks, but most of them are based on zero-order or sample-based method to do the planning.} 
+ \yue{The most relevant works are DDP~, iLQR~, and  iLQG~. We discuss the detailed differences between our method and these methods in Appendix \ref{sec:related work}.}
+ 
+
+Since our planning algorithm relies on the learned model and learned policy, we build our algorithm based on these works on \textbf{model learning} and \textbf{policy learning}.
+Our POMP algorithm tries to solve a more challenging task compared to the related work on \textbf{decision-making}: efficiently optimize the trajectory in continuous action space when the environment model is unknown. 
+Different from our works, the MPC with DDP as trajectory optimizer from \textbf{optimal control theory}  requires the known environment model, and also requires the  hessian matrix  for  online optimization from scratch.  
+
+    
+
+\section{Preliminaries}
+\noindent{\bf Reinforcement Learning.} 
+We consider a discrete-time Markov Decision Process (MDP) $\mathcal{M}$, defined by the tuple $\left(\mathcal{X}, \mathcal{A}, f, r, \gamma \right)$, where $\mathcal{X}$ is the state space, $\mathcal{A}$ is the action space, $f:x_{t+1}=f(x_t, a_t)$ is the transition model,  $r:\mathcal{X}\times\mathcal{A}\rightarrow \mathbb{R}$ is the reward function, $\gamma$ is the discount factor. We denote the future discounted return at time $t$ as $R_t=\sum_{t^\prime =t}^{\infty} \gamma^{t^\prime -t}r_{t^\prime}$, and Reinforcement Learning~(RL) aims to find a policy $\pi_\theta:\mathcal{X}\times\mathcal{A}\rightarrow \mathbb{R}^+$ that can maximize the expected return $J$. 
+where $\max_{\theta} J(\theta) = \max_{\theta} \mathbb{E}_{\pi_\theta} R_t =  \max_{\theta} \mathbb{E}_{\pi_\theta} \Big[ \sum_{t^\prime =t}^{\infty} \gamma^{t^\prime -t} r(x_{t^\prime}, a_{t^\prime})\Big]$.
+
+\noindent{\bf Bellman Equation.} We define the optimal value function {\small $V^{*}(x) = \max \mathbb{E}[R_t| x_t=x]$}. The optimal value function obeys an important identity known as the Bellman optimality equation $V^{*}(x) = \max_{a_t} \mathbb{E}\Big[r(x_t, a_t|x_t=x) + \gamma V^{*}(x_{t+1})\Big]$. The idea behind this equation is that if we know the $r(x_t, a_t)$ for any $a_t$ and next step value function $ V^{*}(x_{t+1})$ for any $s_{t+1}$, we can recursively select the action $a_t$ which maximizes $r(x_t, a_t|x_t=x) + \gamma V^{*}(x_{t+1})$. Similarly, we can denote the optimal action-value function $Q^*(x, a) = \max \mathbb{E}[R_t|x_t=x, a_t=a]$, and it obeys a similar Bellman optimility equation {\small $Q^*(x,a)=\max_{a_{t+1}} \mathbb{E}\Big[r(x_t, a_t|x_t=x, a_t=a) + \gamma Q^{*}(x_{t+1}, a_{t+1}) \Big]$}.
+
+\noindent{\bf Model-based RL.} Model-based RL method distinguishes itself from model-free counterparts by using the data  to learn a transition model.  Following  and~, we use parametric neural networks to approximate the transition function, reward function, policy function and Q-value function with the following objective function to be optimized
+$J_f(\psi) = \mathbb{E}\big[\log f(x_{t+1}|x_t,a_t) \big]$,
+ $J_r(\omega) = \mathbb{E}\big[\log r(r_t|x_t,a_t) \big]$,
+ $J_\pi(\theta) = \mathbb{E}\big[ \sum_{t=0}^{H-1} \gamma^t r(x_t, a_t) + \gamma^H Q(x_H, a_H) \big]$ and
+ $J_Q = \mathbb{E}\big [ \Vert Q(x_t, a_t)  - (r+\tilde{Q}(x_{t+1},a_{t+1} ))\Vert_2\big] $, respectively. In $J_\pi(\theta)$, we truncate the trajectory in horizon $H$ to avoid long time model rollout. 
+
+\yue{\noindent{\bf Notations. \label{Notations}}  For one-dimensional state and action case, we denote the partial differentiation of function by using its output with subscripts, \emph{e.g.}, $r_x\triangleq\frac{ \partial r(x,a)  }{\partial x}$, $r_a\triangleq\frac{ \partial r(x,a)  }{\partial a}$, $f_x\triangleq\frac{ \partial f(x,a)  }{\partial x}$, $f_a\triangleq\frac{ \partial f(x,a)  }{\partial a}$, $Q_x\triangleq\frac{ \partial Q(x,a)  }{\partial x}$ and $Q_a\triangleq\frac{ \partial Q(x,a)  }{\partial a}$. See Appendix \ref{sec: vector form} for the multi-dimension case.}
+
+\section{ Planning in continuous action space }
+
+In this section, we present our POMP algorithm and the D3P planner in detail.  First, we derive the  D3P planner which relies on the Bellman equation. Then, we theoretically prove its convergence property. 
+Finally, we show how to effectively apply D3P planner in our POMP algorithm in RL.
+
+    
+    
+
+\subsection{Deep Differential Dynamic Programming}
+In this subsection, we will theoretically derive the D3P planner and prove its convergence property.
+There are mainly two challenges in  continuous action space planning: (1) the infinite number of  candidate actions, and (2) the temporal dependency between actions in different timesteps.  
+
+Here, we briefly introduce the main idea of our D3P planner to solve the above challenges. We first define an objective function and formulate it as an optimization problem based on the Bellman equation. Then, we convert it to a local optimization problem and approximate the objective function via Taylor expansion.
+To avoid the computation of the hessian matrix, we use the first-order Taylor expansion to construct a quadratic function. Since the analytical solution of a quadratic function is easy to get, we can efficiently get the local optimal action sequence and thus overcome the challenge (1) to some extent. To get over challenge (2), we introduce a feedback term into the objective function to depict the state change induced by the action update in prior timesteps. By considering the feedback term that explicitly involves the information of prior action updates, we can correct the action update in time. 
+The remaining question is whether the D3P planner can indeed optimize the original objective after we make several approximations when deriving the algorithm. Through theoretical analysis, we show that the convergence rate of the proposed algorithm can be guaranteed.
+
+We now introduce how we derive the D3P planner. For clarification, we use the finite horizon MDP as a proof of concept setting. \yue{The state and action are one-dimensional variables. The infinite horizon MDP with multi-dimensional state and action can be derived similarly and we put it in Appendix \ref{sec: vector form}. }
+Recall the goal of RL methods, our planning algorithm aims  to find the action sequences $\{a_1,\cdots a_H \}$ that can maximize the value function \lijun{$V(x_1,1) \triangleq \max_{a_1,\cdots a_H}  \sum_{h=1}^{H} r(x_h, a_h)$, where $x_{h+1} = f(x_h,a_h)$. }
+
+\begin{algorithm}[!tb]
+\caption{Deep Differential Dynamic Programming (D3P)}
+\label{algo_d3p}
+\begin{algorithmic}[1]
+\REQUIRE Initial action sequences $\{ a_t \}_{t=1\cdots H}$, initial state ${x}_1$, iteration number $N_d$,  valid horizon $H$, maximum expected improvement $\vmax - Q(x, a)$.
+\FOR[Initialize the trajectory.]{$i=1,\cdots, H$} 
+\STATE Calculate $r_i = r_\omega({x}_i, {a}_i), {x}_{i+1} = f_\psi({x}_i, {a}_i)$.
+\ENDFOR
+\FOR[Optimize the trajectory.]{$i=1,\cdots,N_d$} 
+\STATE Calculate $Q_{{x}}({x}_H, {a}_H), Q_{{a}}({x}_H, {a}_H)$. \COMMENT{Backward process.}
+\FOR{$j=H-1,\cdots,1$}
+\STATE Calculate $r_a$, $r_x$, $f_a$, $f_x$.
+\STATE Calculate $Q_a$, $Q_x$, $k$, $K$, $V_x$ using Equation \ref{eqa_term}, \ref{eqa_dqda}, \ref{eqa_dqdx} and \ref{eq:v_x}.
+\ENDFOR
+\STATE $\delta{x}_1=0$. \COMMENT{Forward process.}
+\FOR{$j=1,\cdots,H$}
+\STATE Calculate $\delta{a}_j$ using Equation \ref{eqa_term}, and ${a}_j\leftarrow {a}_j+ \delta {a}_j$.
+\STATE Calculate ${x}_{j+1} \leftarrow f_\psi({x}_j, {a}_j)$, and $\delta {x}_{j+1}= {x}_{j+1} - {x}_{j}$.
+\ENDFOR
+\ENDFOR
+\RETURN The last best action ${a}_1$.
+\end{algorithmic}
+
+\end{algorithm}
+
+Due to challenge (1), such an optimal action sequence is in general hard to find. Hence our D3P planner treats this optimal action sequence searching problem as an optimization problem that leverages the optimal Bellman equation to formulate the following objective function,
+\begin{align}
+\label{eqn:obe}
+    V(x_h, h) = \max_{a_h}[r(x_h, a_h) + V(f(x_h, a_h), h+1)].
+\end{align}
+Since the reward function and the transition function is unknown, we will use neural network to approximate them. However, the optimization problem is highly non-convex. Thus, we consider an auxiliary goal that is to find the local optimal $a + \delta a$ in the neighbourhood of current action $a$ to improve the action from $a$ to $a+\delta a$.
+
+Denote $Q(x_h, a_h) =  r(x_h, a_h) + V(f(x_h, a_h), h+1)$, our goal can be re-expressed as $\lijun{\delta a_h} = \arg\max_{\delta a}\left[ Q(x_h, a_h+\delta a) \right]$.
+
+To accelerate the optimization process, D3P planner constructs a quadratic objective function to get the local optimal action analytically. 
+\yue{Specifically, we propose to use the first-order Taylor expansion to avoid computing the hessian matrix. However, the first-order Taylor expansion can not lead to a quadratic objective function directly, hence we first seek a surrogate objective function $D(x,a) \triangleq \left( Q(x,a) -  \vmax \right)^2$, where $\vmax$ is a constant and set to larger than the upper bond of $Q(x,a)$.  It is easy to check that $\arg\min_{\delta a} D(x,a+\delta a) \triangleq \arg\max_{\delta a} Q(x,a + \delta a)$. }
+
+For  challenge (2), intuitively, after updating the action $a_t$ in prior timestep, state $x_{t+1}$ will change and we should update the action $a_{t+1}$ accordingly. Such a manner is often called ``feedback". To achieve the feedback control, we now consider $Q(x+\delta x, a+\delta a)$, in which $\delta x $ represents the state change due to the prior action update.
+Applying first-order Taylor expansion for the Q function in D function we can get a quadratic function of $\delta a$(recall the notations in Preliminary)
+\begin{align}
+    \tilde{D}(x +\delta x,a+\delta a) = (Q(x,a) + Q_a(x,a)\delta a + Q_x(x,a)\delta x - \vmax)^2.
+\end{align}
+
+we now get the optimal action update $\delta a^*$ as a function of the feedback $\delta x$, denote $k_h =\frac{Q(x_h,a_h)- \vmax}{Q_a (x_h,a_h)} $ and $K_h = \frac{Q_x(x_h,a_h)}{Q_a(x_h,a_h)}$,
+\begin{align}
+\label{eqa_term}
+    \delta a^*_h 
+    = -k_h - K_h \delta x_h =-\frac{Q(x_h,a_h)- \vmax}{Q_a (x_h,a_h)} - \frac{Q_x(x_h,a_h)}{Q_a(x_h,a_h)}\delta x_h .
+\end{align} 
+The remaining part is how to calculate the $Q_x(x,a), Q_a(x,a)$ in the update rule,  
+\begin{align}
+\label{eqa_dqda}
+    Q_a(x_h,a_h) = r_a(x_h,a_h) + V_x(f(x_h,a_h), h+1) \cdot f_a(x_h, a_h), \\
+    \label{eqa_dqdx}
+    Q_x(x_h,a_h) = r_x(x_h,a_h) + V_x(f(x_h,a_h), h+1) \cdot f_x(x_h, a_h).
+\end{align}
+By leveraging the differentiable model including the reward and transition function, only the gradient of value function $V_x(f(x_h,a_h), h+1)$ is hard to calculate.
+We use the Bellman equation and Taylor expansion once again to calculate $V_x(f(x_h, a_h),h+1)$. 
+ Putting $\delta a^*_h$ into Bellman equation (\ref{eqn:obe}) and using Taylor expansion , 
+
+\begin{align}
+   V(x_h +\delta x_h , h)   &= Q(x_h + \delta x_h , a_h +\delta a^*_h) \\
+                            &\approx Q(x_h, a_h) +  Q_x(x_h, a_h)\delta x_h + Q_a(x_h, a_h) \delta a_h^* \\
+                            &=  \underbrace{(Q(x_h, a_h) - Q_a(x_h,a_h)k_h)}_{\text{zero-order term}} + \underbrace{(Q_x(x_h, a_h) - Q_a(x_h, a_h)K_h)\delta  x_h.}_{\text{first-order term}}  
+\end{align}
+We can now use the coefficient of the first-order term in  Taylor expansion of $V(x_h +\delta x_h , h)$ to calculate the $V_x$
+\begin{align}\label{eq:v_x}
+    V_x = Q_x(x_h, a_h) - Q_a(x_h, a_h)K_h .
+\end{align}
+The whole D3P planner is shown in Algorithm \ref{algo_d3p}. \yue{Noting that the current presentation of our method is applied in the deterministic environment, but our D3P planner can be easily extended to the stochastic environment with reparameterization tricks (such as normal distribution noise in ). }
+Since we adopt some approximation in the derivation of the algorithm, we need some convergence guarantee. 
+
+\begin{theorem}\label{thm:d3p}
+Let $\{x_h,a_h\}_{h=1,\cdots, H}$, denote the current state and action in a sequence of length T. Let $ \{a_h' = a_h  + \delta a_h\}_{h=1,\cdots, H}$ denote the new actions updated once by D3P planner. Under mild assumptions, we can prove that for $h \in \{1, \cdots , H\}$, there exist constant $C$ and $B$ such that
+\begin{align}
+   \Vert a_h' - a_h^* \Vert  \le C  \sum_{k=1}^H\Vert a_k  -a_k^* \Vert^2  + B \sum_{k=1}^H\Vert a_k  -a_k^* \Vert ,
+\end{align}
+where $C$ proportional to  the Lipschitz (denoted $L_1$) and smoothness (denoted $L_2$) constant of the transition function and reward function $C =  \mathcal{O}(L_1, L_2) $, $B$ proportional to the scale of the second order derivation  of the transition and reward function $B = \mathcal{O} (f_{aa},f_{ax},f_{xx}, r_{aa},r_{ax},r_{xx} )$.
+\end{theorem}
+ 
+The above theorem shows that if we can choose a good initialization point for the planning process, we can guarantee the asymptotic convergence of the planning process. For the finite sample case, the convergence rate is at least   linear convergence. If the second derivative of the transition function is near zero ($B$ is sufficient small),  the convergence rate is near quadratic convergence. The intuition is shown in Lemma \ref{lemma:21apprx}. In this situation, the 2nd order derivative of D can be approximated by the multiplication of the 1st order derivative of $Q$ and thus of $f$ and $r$. For example  $D_{aa} \approx Q_aQ_a$ .
+ 
+  We further analyze the influence of the feedback term in terms of the convergence rate.  
+  
+ \begin{corollary}\label{coro:feedback}
+\yue{If we do not consider the feedback term ($\delta x = 0$)},  the convergence rate is {\small $\Vert a_h' - a_h^* \Vert  \le C \sum_{k=1}^H\Vert a_k  -a_k^* \Vert^2  + B \sum_{k=1}^H\Vert a_k  -a_k^* \Vert  + \frac{Q_x(x_h, a_h)}{Q_a(x_h, a_h)}\sum_{i=h-1}^1 \Pi_{j=i+1}^{h-1}f_x(x_j, a_j)\left[ f_a(x_i, a_i)\delta a_i  +C   \delta a_i  ^2 \right] $}.
+\end{corollary}
+
+\yue{The corollary shows that if we do not consider the temporal dependency between actions in different timestep, or in other words $\delta x=0$, the convergence rate will be slower than Equation (12) with an extra error term. }
+ The intuition is, since we are optimizing the action sequence along a trajectory,  the action update will change the trajectory. Given our objective is  a function of state and action,  the different states will lead to the different optimal actions. Therefore, if we do not consider the state change due to the action update in the previous timesteps, the action update direction will not be toward  the true gradient direction. Besides, the influence is proportional to the magnitude of the state change which is determined by the system property ($f_x$, $f_a$) and previous action update $\delta a_i $. 
+ 
+
+\subsection{Policy Optimization with model planning: A practical implementation }
+
+In this subsection, we show how we apply our D3P planner to the deep RL framework. 
+Since the D3P planner is a plug-and-play algorithm, compared to the traditional model-based RL algorithm like MAAC~, only the  decision-making parts are different. 
+
+The  POMP algorithm  is summarized in Appendix \ref{sec:append pompalg}.  Note that D3P planner module does not introduce any additional neural networks. 
+\yue{All network structure, including model, critic, and policy are the same as MAAC  and MBPO .}
+
+One key problem that needs to be resolved before applying the D3P planner is how to avoid  misleading planning due to the limited generalization ability of the learned model. Such a problem can not be ignored  as long as the ground-truth model is unknown, which can only be learned by data with function approximation. We consider two components in the algorithm to alleviate the effect of the model error: the initialization strategy and the conservative planner objective.  
+
+For the initialization strategy,  we propose to use the policy network and learned model to initialize the state-action trajectory. 
+\yue{That is, the initial action used by  D3P planner is the output of the learned policy. The motivations are as follows. (1) Since the policy is trained to maximize the return-to-go as general model-based RL, the proposed action would be reasonable and competitive, which is better than random initialization. (2) Since the data used to train policy is sampled from the replay buffer, the action outputted by the policy network should lead to a small model prediction error.}
+
+ 
+For the conservative planner objective, constraining the actions outputted by D3P planner  near the training data can keep the model prediction error small and provide an additional regularization for the planner. Specifically, 
+since the policy output is a multivariate Gaussian, we can easily calculate  the log-likelihood $\operatorname{logP}({x}_i, {a}_i)$ for a given state action pair. 
+\yue{The log-likelihood is used as an auxiliary reward, and we add it to the output of the reward function when doing planning in the evaluation phase. }
+Specifically, we add an additional reward at the first step, and the optimization objective of D3P becomes
+$J_{\text{c}}(\{a_i,\cdots, a_{i+H-1}\})=\sum_{h=i}^{i+H-2}r({x}_h, {a}_h)+Q({x}_{i+H-1}, {a}_{i+H-1}) + \alpha \operatorname{logP}({x}_i, {a}_i)$, where $\alpha$ is 
+a hyper-parameter. 
+Please note that we only use this conservative term during evaluation, as we want to encourage exploration when training.
+ 
+
+\section{Experiments}
+
+In this section, we aim to answer the following questions: (1) Compared to state-of-the-art methods, how does our method perform on benchmark continuous control tasks? (2) Is planning necessary to make a better decision in continuous control? (3) Is our D3P planner advantageous in continuous control?  (4) How the learned model quality affects decision-making? (5) Does our D3P efficiently optimize the trajectory quality? (6) Is  the policy network necessary in our framework?
+To answer the above questions, we evaluate our method on continuous control benchmark tasks in the MuJoCo simulator { }. 
+\yue{Our method is built on top of MAAC, which means the procedure of model learning, policy optimization, and the corresponding hyper-parameters are the same as MAAC. More details are left in Appendix \ref{sec:hyperpara}.} Due to space limitation, we leave the detailed description of the baseline methods in Appendix~\ref{sec:des_baseline}.
+
+ 
+\subsection{Comparisons with existing methods}\label{sec:experiment_result}
+
+\vspace{-0.5cm}
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=0.93\linewidth]{iclr2023/figs/compare_with_sota10.pdf}
+   
+    \caption{ {  Learning curves of our method and other baseline methods on six continuous control tasks. The solid lines represent the mean of \revision{10 (for our method)/5 (for other baseline methods)} trails with different seeds, and the shaded regions correspond to STD among  trials. Our method achieves the best results among these strong model-free and model-based reinforcement learning methods.}}
+    \label{fig:comparison_sota}
+\end{figure}
+
+To answer the first question, we compare our method with six SOTA baseline methods, and the results are shown in Fig. \ref{fig:comparison_sota}. Specifically, no matter on asymptotic performance or on the sample efficiency, our method shows a significant performance improvement against MAAC, of which our method is built on top, on all six tasks. Moreover, on two control tasks with high-dimensional action space, Ant and Humanoid, the improvement of our method are more obvious.  In general, our method achieves better performance than all other model-based and model-free baseline methods, which demonstrates the effectiveness and generality of our method. Note that in humanoid task, MAGE  achieves better sample efficiency than ours in early training phase, but our method achieves a better final result than MAGE and MAGE is worse than our method on all other tasks.
+
+\subsection{Ablation studies}
+
+In this section, we conduct several ablation experiments to answer  questions (2)~(6) posted before and show the necessity and effectiveness of the proposed components in our method. 
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=0.93\linewidth]{iclr2023/figs/updatetimes.pdf}
+    \caption{ {Ablation about the update times $N_p$ of policy in each iteration. We can see that increasing $N_p$ cannot help policy optimization.} }
+    \label{fig:updatetimes}
+\end{figure}
+
+\noindent{\bf \lijun{Is planning necessary to make a better decision in continuous control?}} We design experiments to verify the effectiveness of two possible ways to make a better decision: (1) Using the model to do planning and (2) \yue{Increasing the $N_p$ in Algorithm \ref{algo_pomp}, which is the number of update times of the policy net after we collect 1 data from the real environment}, and then relying on the policy to make the decision.
+
+Here we increase $N_p$ from $10$ (in MAAC original implementation) to $\{20, 50, 100\}$ to see whether increasing the update times of the policy could help policy optimization, and the results are presented in Figure \ref{fig:updatetimes}. As shown in the figure, $N_p=10$ in the original MAAC is a rather good choice, and increasing $N_p$ even would harm the policy optimization. However, our method, which uses the learned model as a planner could consistently improve the policy.
+
+\begin{figure}[!b]
+    \centering
+    \includegraphics[width=0.93\linewidth]{iclr2023/figs/sgd2.pdf}
+    \caption{ {  Ablation studies about D3P planner. We replace the D3P planner in our method with a SGD-like planner, \revision{a CEM planner, and a random-shooting planner}, the results show the advantage of our D3P planner.}}
+    \label{fig:sgd}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \begin{minipage}{0.32\linewidth}
+        \subfigure{
+\centering
+\includegraphics[width=\linewidth]{iclr2023/figs/ddppolicy.pdf}
+\label{fig:aa}
+        }
+    \end{minipage}
+    \begin{minipage}{0.32\linewidth}
+        \subfigure{
+\centering
+\includegraphics[width=\linewidth]{iclr2023/figs/ddpt.pdf}
+\label{fig:aa}
+        }
+    \end{minipage}
+        \begin{minipage}{0.32\linewidth}
+        \subfigure{
+\centering
+\includegraphics[width=\linewidth]{iclr2023/figs/ddplogpi.pdf}
+\label{fig:bb}
+        }
+    \end{minipage}
+    \caption{{ (a) The improvement of applying learned model with different training steps on policy with different quality. \yue{``Improvement" means the evaluation return using our D3P planner to subtract the return that without our D3P planner.  ``Policy quality” means the average episode return of the policy when applying the policy in the environment, and ``$ik{\sim}(i+1)k$" denotes the policy cluster whose average return lies in $ik{\sim}(i+1)k$. } ``Model $ik$" denotes the learned model which is trained using $ik$ data. (b) The improvement of different iteration number $N_d$ in D3P (Line 4 in Algorithm \ref{algo_d3p}). \yue{``Model quality” means the number of training data used to train the model, and ``$ik{\sim}jk$" denotes the learned model with  $ik{\sim}jk$ training data.} (c) Ablation  about the policy usage in our method. ``RAND" denotes POMP with a randomly initialized trajectory rather than a policy generated trajectory in D3P. ``$N_d=i$" denotes POMP with iteration number $i$ and ``$N_d=i$ w/o cons" denotes POMP with iteration number $i$  and without the conservative term when evaluation. }} 
+    \label{fig:abquality}
+
+\end{figure}
+
+\revision{\noindent{\bf Is our D3P planner advantageous in continuous control? }} D3P planner considers the temporal dependency and constructs a local quadratic objective function to optimize the initial trajectory proposed by the policy network. To validate the advantage of our method, we replace the D3P planner in our method with an SGD-like planner, which directly optimizes the action sequence with gradient ascend; \revision{a random-shooting planner~, which randomly samples some actions in the entire action space and then scores these actions according to the reward and critic function; a cross-entropy method (CEM) planner~, which adaptively and iteratively adjusts the sampling distribution in a  sophisticated manner. Noting that we only change the planner in all these variants, and keep the model and policy learning unchanged for a fair comparison.} The results are shown in Figure \ref{fig:sgd}, and we can see that SGD-like planner (denoted by POMP with SGD planner) performs similarly to policy network (denoted by MAAC) and the improvement over policy (MAAC) is limited. Our method (denoted by POMP with D3P planner) is more effective than  SGD-like planner. \revision{Moreover, the gaps between our method and the CEM planner (denoted by CEM), the random-shooting planner (denoted by Random-shooting) clearly show the efficiency of the first-order method (compared to the zero-order method).}
+
+\noindent{\bf  How the learned model quality affect decision-making? } As our method optimizes the trajectory via planning in a learned environment model, a key part is to see how the learned model quality affects the planning results. To answer this question, we pick 4 types of the learned model with different amount of training data ( the more training data, the better the quality of the learned model). Then we cluster the policy network according to their performance into 6 groups. Finally, we combine the different quality models with each policy group to see the average performance improvement after we applying the D3P planner on the learned model and policy. \yue{First, for each model and each policy, we  evaluate the average return using 10 trajectories. Then, we cluster the learned model and policy according to their training data and the average return and then calculate the average performance improvement in each cluster}. From the result shown in Figure \ref{fig:abquality}(a): (1) the improvement of the model trained on only  $10k$ train data is similar to those of models trained by more data (except $5k{\sim}6k$ is slightly worse), which means it is enough to use an early stage model in our D3P planner; (2) our D3P planner could consistently improve the performance of the decision  made by policy network directly, especially in early and middle stage.
+
+\noindent{\bf Does our D3P efficiently optimize the trajectory quality?} Similarly, we cluster the learned model according to their used training data, and combine it with a fixed policy (with an average return about $4k$) and see the impact of different iteration numbers $N_d$ used in our D3P planner. From the results shown in Figure \ref{fig:abquality}(b): (1) the performance improvements increase as we use more iteration numbers, which shows the effectiveness of our method; (2) the improvements are almost the same after  $N_d>=6$, ,  and we do not need more iterations, which demonstrate the efficiency of our method; (3) the results also show that the early stage model is enough for our D3P planner.
+
+\noindent{\bf Is the policy network necessary in our framework?} There are two usages for the policy network in our D3P planner: (1) initialize the trajectory to be optimized, (2) add a conservative term as an auxiliary reward during evaluation. We conduct an ablation experiment to verify the necessity of the policy network in our method, and the results are shown in Figure \ref{fig:abquality}(c). First, when we use a trajectory randomly generated rather than proposed by a policy network, the D3P failed to find any meaningful action (denoted by ``RAND"), which proves the importance of trajectory initialization. Second, as we increase  the iteration number in D3P planner, the performance with our conservative term is consistently better than those without it, especially at the later stage when the policy network is near optimal. This means the generality of the learned model is limited when we use a large iteration number $N_d$, and we need to constrain the optimization space of the method.
+
+\section{Conclusions and Future Work}
+
+In this work, we first derived the D3P planner which is effective and efficient for continuous control  and proved its convergence rate. Then, we proposed the POMP algorithm, which leverages our D3P planner in a practical model-based RL framework. Extensive experiments and ablation studies on benchmark continuous control
+tasks demonstrate the effectiveness of our method and show the benefit of utilizing the model planning in continuous control.
+For future work,  given the model uncertainty can effectively trade-off the exploration and  exploitation, how to properly estimate and  incorporate the uncertainty of the learned model into planning is a meaningful topic.
+
+\section*{Acknowledgments}
+This work was supported in part by NSFC under Contract 61836011, and in part by the Fundamental Research Funds for the Central Universities under contract WK3490000007.
+
+\bibliography{iclr2023_conference}
+\bibliographystyle{iclr2023_conference}
+
+\newpage
+
